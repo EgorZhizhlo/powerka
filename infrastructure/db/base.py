@@ -1,5 +1,5 @@
-from sqlalchemy import Integer
-from sqlalchemy.orm import DeclarativeBase, Column
+from sqlalchemy import Integer, Column
+from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.ext.asyncio import AsyncAttrs
 
 
