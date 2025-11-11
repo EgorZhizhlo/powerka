@@ -3,7 +3,7 @@ from typing import Iterable, List
 from datetime import date as date_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.time_utils import date_utc_now
+from core.utils.time_utils import date_utc_now
 from core.exceptions import HTTPException
 from models import (
     VerificationEntryModel, VerificationLogModel, VerifierModel,

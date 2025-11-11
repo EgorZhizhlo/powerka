@@ -12,7 +12,7 @@ from core.db.dependencies import get_company_timezone
 from core.exceptions import check_is_none
 from core.templates.jinja_filters import format_datetime_tz
 
-from infrastructure.db import async_db_session_begin
+from infrastructure.db import async_db_session, async_db_session_begin
 from models import VerificationReportModel
 
 from access_control import (
@@ -20,7 +20,7 @@ from access_control import (
     check_include_in_active_company
 )
 
-from apps.company_app.features.verification_reports.schemas import (
+from apps.company_app.schemas.verification_reports import (
     VerificationReportsPage, VerificationReportForm,
     VerificationReportListItem, VerificationReportDetail
 )
@@ -42,7 +42,7 @@ async def api_get_verification_reports(
     user_data: JwtData = Depends(
         check_include_in_not_active_company),
     company_tz: str = Depends(get_company_timezone),
-    session: AsyncSession = Depends(async_db_session_begin),
+    session: AsyncSession = Depends(async_db_session),
 ):
     per_page = settings.entries_per_page
 
@@ -93,7 +93,7 @@ async def api_get_verification_report(
     user_data: JwtData = Depends(
         check_include_in_not_active_company),
     company_tz: str = Depends(get_company_timezone),
-    session: AsyncSession = Depends(async_db_session_begin),
+    session: AsyncSession = Depends(async_db_session),
 ):
     report = (
         await session.execute(

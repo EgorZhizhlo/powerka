@@ -17,9 +17,8 @@ async def check_employee_limit_available(
     """
     Проверить доступность мест для создания сотрудников.
 
-    Использует двухэтапную проверку:
-    1. Быстрая проверка через Redis кеш
-    2. Финальная проверка с блокировкой БД (FOR UPDATE)
+    Использует атомарную проверку с блокировкой FOR UPDATE для защиты
+    от race conditions при конкурентных запросах.
 
     Args:
         session: Асинхронная сессия БД
@@ -32,41 +31,9 @@ async def check_employee_limit_available(
     Business Logic:
         - max_employees = None → безлимит (проверка пропускается)
         - max_employees = 0 → запрещено создание (ошибка)
-        - max_employees > 0 → проверка used_employees + required_slots <= max_employees
+        - max_employees > 0 → проверка лимита (used + required <= max)
+        - FOR UPDATE блокирует строку до конца транзакции
     """
-    # Быстрая проверка через кеш
-    from apps.tariff_app.services.tariff_cache_service import tariff_cache
-
-    cached_limits = await tariff_cache.get_cached_limits(company_id)
-
-    if cached_limits and cached_limits.get('has_tariff'):
-        limits = cached_limits.get('limits', {})
-        max_employees = limits.get('max_employees')
-        used_employees = limits.get('used_employees', 0)
-
-        # Безлимит - сразу разрешаем
-        if max_employees is None:
-            return
-
-        # Запрещено создание
-        if max_employees == 0:
-            raise CustomHTTPException(
-                status_code=403,
-                detail="Тариф компании запрещает создание сотрудников (лимит: 0)."
-            )
-
-        # Проверяем по кешу
-        if used_employees + required_slots > max_employees:
-            # Кеш показывает превышение - перепроверяем в БД
-            # (может быть устаревший кеш)
-            pass  # Переходим к проверке с блокировкой
-        else:
-            # Кеш показывает, что место есть - всё равно перепроверяем в БД
-            # с блокировкой для гарантии атомарности
-            pass
-
-    # Шаг 2: Финальная проверка с блокировкой БД (FOR UPDATE)
-    # Это гарантирует сериализацию конкурентных транзакций
     stmt = (
         select(CompanyTariffState)
         .where(CompanyTariffState.company_id == company_id)
@@ -79,7 +46,10 @@ async def check_employee_limit_available(
         raise CustomHTTPException(
             company_id=company_id,
             status_code=403,
-            detail="У компании нет активного тарифа. Создание сотрудников запрещено."
+            detail=(
+                "У компании нет активного тарифа. "
+                "Создание сотрудников запрещено."
+            )
         )
 
     # Безлимит - пропускаем проверку

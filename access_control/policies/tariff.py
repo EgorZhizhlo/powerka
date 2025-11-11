@@ -13,7 +13,7 @@ from access_control.roles import (
 )
 
 
-async def check_access_tariff(
+async def check_tariff_access(
     auth_token: Optional[str] = Cookie(None),
     company_info_token: Optional[str] = Cookie(None),
 ) -> JwtData:

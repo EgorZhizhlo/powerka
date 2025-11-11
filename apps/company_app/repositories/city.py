@@ -1,11 +1,11 @@
 import math
 from typing import List, Optional, Tuple
-from sqlalchemy import select, func, exists
+from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models import CityModel, ActNumberModel, ActSeriesModel
-from infrastructure.db import BaseRepository
+from core.db import BaseRepository
 
 
 class CityRepository(BaseRepository[CityModel]):

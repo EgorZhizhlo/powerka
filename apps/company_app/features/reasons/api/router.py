@@ -7,21 +7,21 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.config import settings
-from core.db.dependencies import get_company_timezone
-from core.exceptions import CustomHTTPException, check_is_none
-from core.templates.jinja_filters import format_datetime_tz
-
-from infrastructure.db import async_db_session_begin
-from models import ReasonModel
-
 from access_control import (
     JwtData,
     check_include_in_not_active_company,
     check_include_in_active_company
 )
 
-from apps.company_app.features.reasons.schemas import (
+from core.config import settings
+from core.db.dependencies import get_company_timezone
+from core.exceptions import CustomHTTPException, check_is_none
+from core.templates.jinja_filters import format_datetime_tz
+
+from infrastructure.db import async_db_session, async_db_session_begin
+from models import ReasonModel
+
+from apps.company_app.schemas.reasons import (
     ReasonsPage, ReasonForm, ReasonOut
 )
 
@@ -42,7 +42,7 @@ async def api_get_reasons(
     user_data: JwtData = Depends(
         check_include_in_not_active_company),
     company_tz: str = Depends(get_company_timezone),
-    session: AsyncSession = Depends(async_db_session_begin),
+    session: AsyncSession = Depends(async_db_session),
 ):
     per_page = settings.entries_per_page
     clause = (

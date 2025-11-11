@@ -1,7 +1,32 @@
-from .act_number_repository import ActNumberRepository
-from .act_series_repository import ActSeriesRepository
-from .calendar_report_repository import CalendarReportRepository
-from .city_repository import CityRepository
-from .company_activity_repository import CompanyActivityRepository
-from .company_si_type_repository import CompanySiTypeRepository
-from .equipment_repository import EquipmentRepository
+from apps.company_app.repositories.act_number import (
+    ActNumberRepository
+)
+from apps.company_app.repositories.act_series import (
+    ActSeriesRepository
+)
+from apps.company_app.repositories.calendar_report import (
+    CalendarReportRepository
+)
+from apps.company_app.repositories.city import (
+    CityRepository
+)
+from apps.company_app.repositories.company_activity import (
+    CompanyActivityRepository
+)
+from apps.company_app.repositories.company_si_type import (
+    CompanySiTypeRepository
+)
+from apps.company_app.repositories.equipment import (
+    EquipmentRepository
+)
+
+
+__all__ = [
+    "ActNumberRepository",
+    "ActSeriesRepository",
+    "CalendarReportRepository",
+    "CityRepository",
+    "CompanyActivityRepository",
+    "CompanySiTypeRepository",
+    "EquipmentRepository",
+]

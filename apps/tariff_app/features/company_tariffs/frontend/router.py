@@ -2,9 +2,10 @@ from fastapi import APIRouter, Depends, Request, Query
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
+from access_control import JwtData, check_tariff_access
+
 from core.config import settings
-from access_control.employee_token_data import JwtData
-from access_control.security.tariff import check_access_tariff
+
 from apps.tariff_app.services.company_tariff_service import (
     CompanyTariffService,
     get_company_tariff_service_read
@@ -28,7 +29,7 @@ templates = Jinja2Templates(directory="templates/tariff")
 )
 async def companies_list_page(
     request: Request,
-    user_data: JwtData = Depends(check_access_tariff),
+    user_data: JwtData = Depends(check_tariff_access),
     service: CompanyTariffService = Depends(get_company_tariff_service_read)
 ):
     """Главная страница - список всех компаний с тарифами"""
@@ -53,7 +54,7 @@ async def company_tariff_page(
     company_id: int = Query(..., ge=1, le=settings.max_int),
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
-    employee_data: JwtData = Depends(check_access_tariff),
+    employee_data: JwtData = Depends(check_tariff_access),
     service: CompanyTariffService = Depends(get_company_tariff_service_read)
 ):
     """Страница текущего тарифа компании с пагинацией истории"""
@@ -91,7 +92,7 @@ async def company_tariff_page(
 async def assign_tariff_page(
     request: Request,
     company_id: int = Query(..., ge=1, le=settings.max_int),
-    employee_data: JwtData = Depends(check_access_tariff),
+    employee_data: JwtData = Depends(check_tariff_access),
     base_tariff_service: BaseTariffService = Depends(
         get_base_tariff_service_read
     ),
@@ -124,7 +125,7 @@ async def assign_tariff_page(
 async def edit_tariff_page(
     request: Request,
     company_id: int = Query(..., ge=1, le=settings.max_int),
-    employee_data: JwtData = Depends(check_access_tariff),
+    employee_data: JwtData = Depends(check_tariff_access),
     service: CompanyTariffService = Depends(get_company_tariff_service_read)
 ):
     """Страница изменения тарифа компании"""

@@ -27,7 +27,7 @@ from apps.verification_app.repositories import (
     ReasonRepository, read_reason_repository,
 )
 
-from .schemas import MetrologInfoForm
+from apps.verification_app.schemas.metrologs_control_a import MetrologInfoForm
 
 
 metrologs_control_api_router = APIRouter(prefix='/api/metrologs-control')

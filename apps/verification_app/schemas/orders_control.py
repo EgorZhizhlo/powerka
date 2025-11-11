@@ -2,7 +2,7 @@ from pydantic import BaseModel, field_validator, Field, ConfigDict
 from typing import Optional, List
 from datetime import date as date_
 
-from core.time_utils import date_utc_now
+from core.utils.time_utils import date_utc_now
 from models.enums import (
     VerificationLegalEntity, OrderWaterType
 )

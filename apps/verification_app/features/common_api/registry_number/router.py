@@ -6,7 +6,9 @@ from apps.verification_app.repositories import (
 )
 from core.config import settings
 from access_control import JwtData, check_access_verification
-from .schemas import RegistryNumberResponse
+from apps.verification_app.schemas.registry_number import (
+    RegistryNumberResponse
+)
 
 
 registry_number_router = APIRouter(prefix="/api/registry-numbers")

@@ -6,7 +6,7 @@ from apps.verification_app.repositories import (
 )
 from core.config import settings
 from access_control import JwtData, check_access_verification
-from .schemas import ActNumberResponse
+from apps.verification_app.schemas.act_number import ActNumberResponse
 
 
 act_number_router = APIRouter(prefix='/api/act-numbers')

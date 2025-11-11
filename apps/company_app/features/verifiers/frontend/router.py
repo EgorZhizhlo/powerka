@@ -15,7 +15,8 @@ from models import (
 from apps.company_app.common import make_context
 
 from access_control import (
-    JwtData, check_include_in_not_active_company,
+    JwtData,
+    check_include_in_not_active_company,
     check_include_in_active_company
 )
 

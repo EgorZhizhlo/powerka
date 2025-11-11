@@ -3,8 +3,9 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from core.config import settings
-from access_control.employee_token_data import JwtData
-from access_control.security.tariff import check_access_tariff
+
+from access_control import JwtData, check_tariff_access
+
 from apps.tariff_app.services.base_tariff_service import (
     BaseTariffService,
     get_base_tariff_service_read
@@ -23,7 +24,7 @@ templates = Jinja2Templates(directory="templates/tariff")
 )
 async def base_tariffs_page(
     request: Request,
-    employee_data: JwtData = Depends(check_access_tariff),
+    employee_data: JwtData = Depends(check_tariff_access),
     service: BaseTariffService = Depends(get_base_tariff_service_read)
 ):
     """
@@ -49,7 +50,7 @@ async def base_tariffs_page(
 )
 async def create_base_tariff_page(
     request: Request,
-    employee_data: JwtData = Depends(check_access_tariff)
+    employee_data: JwtData = Depends(check_tariff_access)
 ):
     """
     Страница с формой создания нового базового тарифа.
@@ -72,7 +73,7 @@ async def create_base_tariff_page(
 async def edit_base_tariff_page(
     request: Request,
     tariff_id: int = Query(..., ge=1, le=settings.max_int),
-    employee_data: JwtData = Depends(check_access_tariff),
+    employee_data: JwtData = Depends(check_tariff_access),
     service: BaseTariffService = Depends(get_base_tariff_service_read)
 ):
     """

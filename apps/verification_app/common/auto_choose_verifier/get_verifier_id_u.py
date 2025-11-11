@@ -7,7 +7,9 @@ from models import (
     VerificationLogModel, ActNumberModel)
 
 
-def check_similarity_act_numbers(entry_data, last_act_number, company_id) -> bool:
+def check_similarity_act_numbers(
+        entry_data, last_act_number, company_id
+) -> bool:
     return (
         last_act_number.act_number == entry_data.act_number and
         last_act_number.series_id == entry_data.series_id and

@@ -12,19 +12,19 @@ from core.db.dependencies import get_company_timezone
 from core.exceptions import check_is_none
 from core.templates.jinja_filters import format_datetime_tz
 
-from infrastructure.db import async_db_session_begin
-from models import SiModificationModel, RegistryNumberModel
-from models.associations import (
-    registry_numbers_modifications
-)
-
 from access_control import (
     JwtData,
     check_include_in_not_active_company,
     check_include_in_active_company
 )
 
-from apps.company_app.features.registry_numbers.schemas import (
+from infrastructure.db import async_db_session, async_db_session_begin
+from models import SiModificationModel, RegistryNumberModel
+from models.associations import (
+    registry_numbers_modifications
+)
+
+from apps.company_app.schemas.registry_numbers import (
     RegistryNumberCreate, RegistryNumberPage, RegistryNumberOut
 )
 
@@ -41,7 +41,7 @@ async def api_get_registry_numbers(
     company_id: int = Query(..., ge=1, le=settings.max_int),
     page: int = Query(1, ge=1),
     search: str = Query(""),
-    session: AsyncSession = Depends(async_db_session_begin),
+    session: AsyncSession = Depends(async_db_session),
     user_data: JwtData = Depends(
         check_include_in_not_active_company),
     company_tz: str = Depends(get_company_timezone),

@@ -25,14 +25,13 @@ from core.db.dependencies import get_company_timezone
 from core.exceptions import CustomHTTPException, check_is_none
 from core.templates.jinja_filters import format_datetime_tz
 
-from infrastructure.db import async_db_session_begin
+from infrastructure.db import async_db_session, async_db_session_begin
+
 from models import (
     ActSeriesModel, EmployeeModel, CompanyModel, CityModel, VerifierModel,
     RouteModel
 )
-from models.associations import (
-    employees_routes, employees_cities
-)
+from models.associations import employees_routes, employees_cities
 from models.enums import EmployeeStatus
 
 from apps.company_app.common import (
@@ -41,8 +40,7 @@ from apps.company_app.common import (
     increment_employee_count,
     decrement_employee_count
 )
-
-from apps.company_app.features.employees.schemas import (
+from apps.company_app.schemas.employees import (
     EmployeesPage, EmployeeOut, EmployeeCreate
 )
 
@@ -57,7 +55,7 @@ async def api_get_employees(
     company_id: int = Query(..., ge=1, le=settings.max_int),
     page: int = Query(1, ge=1, le=settings.max_int),
     search: str = Query(""),
-    session: AsyncSession = Depends(async_db_session_begin),
+    session: AsyncSession = Depends(async_db_session),
     user_data: JwtData = Depends(
         check_include_in_not_active_company),
     company_tz: str = Depends(get_company_timezone),
@@ -156,7 +154,7 @@ async def api_get_employees(
 async def api_get_employee_image(
     company_id: int = Query(..., ge=1, le=settings.max_int),
     employee_id: int = Query(..., ge=1, le=settings.max_int),
-    session: AsyncSession = Depends(async_db_session_begin),
+    session: AsyncSession = Depends(async_db_session),
     user_data: JwtData = Depends(check_include_in_not_active_company)
 ):
     employee = (await session.execute(

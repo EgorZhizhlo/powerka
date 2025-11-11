@@ -6,7 +6,7 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy import select, exists, func, cast, String
 
 from models import EquipmentModel, EquipmentInfoModel
-from infrastructure.db import BaseRepository
+from core.db import BaseRepository
 
 
 class EquipmentRepository(BaseRepository[EquipmentModel]):

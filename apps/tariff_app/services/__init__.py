@@ -1,14 +1,14 @@
-from .base_tariff_service import (
+from apps.tariff_app.services.base_tariff import (
     BaseTariffService,
     get_base_tariff_service_read,
     get_base_tariff_service_write
 )
-from .company_tariff_service import (
+from apps.tariff_app.services.company_tariff import (
     CompanyTariffService,
     get_company_tariff_service_read,
     get_company_tariff_service_write
 )
-from .tariff_cache_service import tariff_cache
+from apps.tariff_app.services.tariff_cache import tariff_cache
 
 
 __all__ = [

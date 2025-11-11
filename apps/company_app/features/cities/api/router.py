@@ -16,9 +16,9 @@ from core.db.dependencies import get_company_timezone
 from core.exceptions import CustomHTTPException, check_is_none
 from core.templates.jinja_filters import format_datetime_tz
 
-from infrastructure.db import async_db_session_begin
+from infrastructure.db import async_db_session, async_db_session_begin
 
-from apps.company_app.features.cities.schemas import (
+from apps.company_app.schemas.cities import (
     CityForm, CitiesPage, CityOut
 )
 
@@ -38,7 +38,7 @@ async def api_get_cities(
     user_data: JwtData = Depends(
         check_include_in_not_active_company),
     company_tz: str = Depends(get_company_timezone),
-    session: AsyncSession = Depends(async_db_session_begin),
+    session: AsyncSession = Depends(async_db_session),
 ):
     repo = CityRepository(session)
     per_page = settings.entries_per_page

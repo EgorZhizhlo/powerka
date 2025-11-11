@@ -19,7 +19,7 @@ from apps.verification_app.repositories import (
     MetrologInfoRepository, read_metrolog_info_repository,
     CompanyRepository, read_company_repository
 )
-from .schemas import MetrologInfoForm
+from apps.verification_app.schemas.metrologs_control_f import MetrologInfoForm
 
 
 metrologs_control_frontend_router = APIRouter(prefix='/metrologs-control')

@@ -1,8 +1,10 @@
-from .base_tariff_repository import BaseTariffRepository
-from .company_tariff_history_repository import (
+from apps.tariff_app.repositories.base_tariff import BaseTariffRepository
+from apps.tariff_app.repositories.company_tariff_history import (
     CompanyTariffHistoryRepository
 )
-from .company_tariff_state_repository import CompanyTariffStateRepository
+from apps.tariff_app.repositories.company_tariff_state import (
+    CompanyTariffStateRepository
+)
 
 __all__ = [
     "BaseTariffRepository",

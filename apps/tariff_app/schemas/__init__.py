@@ -1,10 +1,10 @@
-from .base_tariff import (
+from apps.tariff_app.schemas.base_tariff import (
     BaseTariffCreate,
     BaseTariffUpdate,
     BaseTariffResponse,
     BaseTariffListResponse
 )
-from .company_tariff import (
+from apps.tariff_app.schemas.company_tariff import (
     CompanyTariffAssign,
     CompanyTariffUpdate,
     CompanyTariffStateResponse,

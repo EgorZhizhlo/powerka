@@ -16,7 +16,7 @@ from access_control.policies import (
     check_include_in_active_company,
     check_include_in_not_active_company,
 
-    check_access_tariff,
+    check_tariff_access,
 
     check_access_verification,
     check_active_access_verification,
@@ -39,7 +39,7 @@ __all__ = [
     "check_company_access",
     "check_include_in_active_company",
     "check_include_in_not_active_company",
-    "check_access_tariff",
+    "check_tariff_access",
     "check_access_verification",
     "check_active_access_verification",
     "verifier_exception",

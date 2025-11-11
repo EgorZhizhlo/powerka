@@ -19,7 +19,7 @@ from access_control import (
 
 from core.db.dependencies import get_company_timezone
 
-from apps.company_app.features.act_series.schemas import (
+from apps.company_app.schemas.act_series import (
     ActSeriesPage, ActSeriesForm, ActSeriesOut
 )
 from apps.company_app.repositories import ActSeriesRepository

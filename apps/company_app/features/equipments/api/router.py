@@ -15,21 +15,21 @@ from core.db.dependencies import get_company_timezone
 from core.exceptions import CustomHTTPException, check_is_none
 from core.templates.jinja_filters import format_datetime_tz
 
+from access_control import (
+    JwtData,
+    check_include_in_not_active_company,
+    check_include_in_active_company,
+)
 
-from infrastructure.db import async_db_session_begin
+from infrastructure.db import async_db_session, async_db_session_begin
+
 from models.enums import VerifierEquipmentAction, EmployeeStatus
 
 from apps.company_app.repositories import (
     EquipmentRepository
 )
 from apps.company_app.common import validate_image, validate_pdf
-
-from access_control import (
-    JwtData,
-    check_include_in_not_active_company,
-    check_include_in_active_company,
-)
-from apps.company_app.features.equipments.schemas import (
+from apps.company_app.schemas.equipments import (
     EquipmentsPage, EquipmentOut, EquipmentForm
 )
 from apps.company_app.common import log_verifier_equipment_action
@@ -54,7 +54,7 @@ async def api_get_equipments(
     user_data: JwtData = Depends(
         check_include_in_not_active_company),
     company_tz: str = Depends(get_company_timezone),
-    session: AsyncSession = Depends(async_db_session_begin),
+    session: AsyncSession = Depends(async_db_session),
 ):
     repo = EquipmentRepository(session)
 
@@ -271,7 +271,7 @@ async def api_get_equipment_file(
     field: Literal["image", "image2", "document_pdf"] = Query(...),
     user_data: JwtData = Depends(
         check_include_in_not_active_company),
-    session: AsyncSession = Depends(async_db_session_begin),
+    session: AsyncSession = Depends(async_db_session),
 ):
     repo = EquipmentRepository(session)
     file_bytes = await repo.get_file(equipment_id, company_id, field)

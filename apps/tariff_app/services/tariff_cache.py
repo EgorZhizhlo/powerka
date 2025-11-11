@@ -2,7 +2,7 @@ import json
 from typing import Optional, Dict, Any
 from datetime import date
 
-from core.redis_client import redis
+from infrastructure.cache.redis_client import redis
 from core.config import settings
 
 
@@ -12,7 +12,7 @@ class TariffCacheService:
     @property
     def cache_ttl(self) -> int:
         """Получить TTL кеша из настроек"""
-        return settings.TARIFF_CACHE_TTL
+        return settings.tariff_cache_ttl
 
     @staticmethod
     def _get_cache_key(company_id: int) -> str:
@@ -23,12 +23,6 @@ class TariffCacheService:
     def _serialize_tariff_data(state: Any) -> Dict[str, Any]:
         """
         Сериализовать данные тарифа для кеширования
-
-        Args:
-            state: CompanyTariffState объект
-
-        Returns:
-            Словарь с данными для кеша
         """
         if not state:
             return {
@@ -95,12 +89,6 @@ class TariffCacheService:
     ) -> Optional[Dict[str, Any]]:
         """
         Получить закешированную информацию о лимитах компании
-
-        Args:
-            company_id: ID компании
-
-        Returns:
-            Словарь с данными или None, если кеш пуст
         """
         key = self._get_cache_key(company_id)
         cached = await redis.get(key)
@@ -122,10 +110,6 @@ class TariffCacheService:
     ) -> None:
         """
         Закешировать информацию о лимитах компании
-
-        Args:
-            company_id: ID компании
-            state: CompanyTariffState объект
         """
         key = self._get_cache_key(company_id)
         data = self._serialize_tariff_data(state)
@@ -139,9 +123,6 @@ class TariffCacheService:
     async def invalidate_cache(self, company_id: int) -> None:
         """
         Инвалидировать (удалить) кеш для компании
-
-        Args:
-            company_id: ID компании
         """
         key = self._get_cache_key(company_id)
         await redis.delete(key)
@@ -154,11 +135,6 @@ class TariffCacheService:
     ) -> None:
         """
         Обновить счётчик использования в кеше
-
-        Args:
-            company_id: ID компании
-            field: Поле для обновления (employees/verifications/orders)
-            delta: Изменение значения (+1 или -1)
         """
         key = self._get_cache_key(company_id)
         cached = await self.get_cached_limits(company_id)
@@ -195,14 +171,6 @@ class TariffCacheService:
     ) -> Dict[str, Any]:
         """
         Получить лимиты из кеша или из БД с последующим кешированием
-
-        Args:
-            company_id: ID компании
-            fetch_callback: Async функция для получения данных из БД
-                           Должна возвращать CompanyTariffState
-
-        Returns:
-            Словарь с данными о лимитах
         """
         # Проверяем кеш
         cached = await self.get_cached_limits(company_id)
@@ -219,5 +187,4 @@ class TariffCacheService:
         return self._serialize_tariff_data(state)
 
 
-# Singleton instance
 tariff_cache = TariffCacheService()

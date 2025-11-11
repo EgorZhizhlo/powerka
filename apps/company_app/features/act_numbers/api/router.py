@@ -18,7 +18,7 @@ from core.db.dependencies import get_company_timezone
 from core.exceptions import check_is_none, CustomHTTPException
 from core.templates.jinja_filters import format_datetime_tz
 
-from apps.company_app.features.act_numbers.schemas import (
+from apps.company_app.schemas.act_numbers import (
     ActNumberForm, ActNumbersPage, ActNumberOut
 )
 

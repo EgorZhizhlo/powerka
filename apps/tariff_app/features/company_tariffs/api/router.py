@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, Query, Body, status
 
+from access_control import JwtData, check_tariff_access
+
 from core.config import settings
-from access_control.employee_token_data import JwtData
-from access_control.security.tariff import check_access_tariff
+
 from apps.tariff_app.schemas.company_tariff import (
     CompanyTariffAssign,
     CompanyTariffUpdate,
@@ -27,7 +28,7 @@ company_tariffs_api_router = APIRouter(
 )
 async def get_company_tariff(
     company_id: int = Query(..., ge=1, le=settings.max_int),
-    employee_data: JwtData = Depends(check_access_tariff),
+    employee_data: JwtData = Depends(check_tariff_access),
     service: CompanyTariffService = Depends(
         get_company_tariff_service_read
     )
@@ -44,7 +45,7 @@ async def get_company_tariff_history(
     company_id: int = Query(..., ge=1, le=settings.max_int),
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
-    employee_data: JwtData = Depends(check_access_tariff),
+    employee_data: JwtData = Depends(check_tariff_access),
     service: CompanyTariffService = Depends(
         get_company_tariff_service_read
     )
@@ -64,7 +65,7 @@ async def get_company_tariff_history(
 async def assign_company_tariff(
     company_id: int = Query(..., ge=1, le=settings.max_int),
     data: CompanyTariffAssign = Body(...),
-    employee_data: JwtData = Depends(check_access_tariff),
+    employee_data: JwtData = Depends(check_tariff_access),
     service: CompanyTariffService = Depends(
         get_company_tariff_service_write
     )
@@ -85,7 +86,7 @@ async def assign_company_tariff(
 async def update_company_tariff(
     company_id: int = Query(..., ge=1, le=settings.max_int),
     data: CompanyTariffUpdate = Body(...),
-    employee_data: JwtData = Depends(check_access_tariff),
+    employee_data: JwtData = Depends(check_tariff_access),
     service: CompanyTariffService = Depends(
         get_company_tariff_service_write
     )
@@ -104,7 +105,7 @@ async def update_company_tariff(
 )
 async def delete_company_tariff(
     company_id: int = Query(..., ge=1, le=settings.max_int),
-    employee_data: JwtData = Depends(check_access_tariff),
+    employee_data: JwtData = Depends(check_tariff_access),
     service: CompanyTariffService = Depends(
         get_company_tariff_service_write
     )
