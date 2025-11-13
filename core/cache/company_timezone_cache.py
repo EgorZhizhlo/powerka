@@ -2,7 +2,7 @@ from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from infrastructure.cache.redis_client import redis
+from infrastructure.cache import redis
 from models import CompanyModel
 
 

@@ -6,7 +6,8 @@ from core.exceptions import CustomHTTPException
 
 class AsyncYandexDiskAPI:
     BASE_URL = "https://cloud-api.yandex.net/v1/disk"
-    NAME_BASE_DIR = "/ПОВЕРКА__НЕ_УДАЛЯТЬ"
+    NAME_BASE_DIR = "/ТЕСТОВАЯ_ПАПКА"
+    # "/ПОВЕРКА__НЕ_УДАЛЯТЬ"
 
     def __init__(self, token: str):
         """

@@ -17,7 +17,6 @@ class VerificationEntryPhotoModel(BaseModel, TimeMixin):
 
     file_name = Column(String, nullable=True)
     url = Column(String, nullable=True)
-    service_name = Column(String, nullable=True)
 
     verification_entry = relationship(
         "VerificationEntryModel",

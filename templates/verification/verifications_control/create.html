@@ -304,14 +304,14 @@
 
         <div class="col-md-6 mb-3 flex-grow-1 d-flex flex-column">
           <label for="verification_images" class="form-label text-truncate">
-            Загрузить изображения (до {{verification_photo_limit}} файлов)
+            Загрузить изображения (до {{image_limit_per_verification}} файлов)
           </label>
           <input 
             type="file" id="verification_images"
             name="verification_images" class="form-control"
             accept="image/*" multiple />
           <div class="form-text text-truncate">
-            Максимум {{verification_photo_limit}} файлов: jpeg, jpg, png, heic, heif, webp.
+            Максимум {{image_limit_per_verification}} файлов: jpeg, jpg, png, heic, heif, webp.
           </div>
         </div>
         <div class="col-12 d-flex justify-content-end form-actions">
@@ -330,7 +330,7 @@
 <script>
   window.userStatus = {{ status | default(None) | tojson | safe }};
   window.defaultCityId = {{ default_city_id | default(None) | tojson | safe }};
-  window.photoLimit = {{ verification_photo_limit | default(None) | tojson | safe }};
+  window.photoLimit = {{ image_limit_per_verification | default(None) | tojson | safe }};
   window.autoManufYear = {{ auto_manufacture_year | default(None) | tojson | safe }};
   window.companyId = {{ company_id | default(None) | tojson | safe }};
   window.companyTz = {{ company_tz | default('Europe/Moscow') | tojson | safe }};

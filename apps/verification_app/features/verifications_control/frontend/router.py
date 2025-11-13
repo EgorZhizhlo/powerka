@@ -205,7 +205,7 @@ async def create_verification_entry_page(
         "locations": await location_repo.get_locations_for_company(),
         "series": await act_series_repo.get_act_series_for_company(),
         "reasons": await reason_repo.get_reasons_for_company(),
-        "verification_photo_limit": settings.verification_photo_limit,
+        "image_limit_per_verification": settings.image_limit_per_verification,
         "default_city_id": default_city_id,
         "default_series_id": default_series_id,
     }
@@ -324,7 +324,7 @@ async def update_verification_entry_page(
             status=status
         ),
         "verifiers": verifiers,
-        "verification_photo_limit": settings.verification_photo_limit,
+        "image_limit_per_verification": settings.image_limit_per_verification,
         "verification_entry": verification_entry,
         "verification_entry_photos": verification_entry_photos,
         "title_name": "Редактирование записи поверки",

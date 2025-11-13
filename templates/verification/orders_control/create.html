@@ -372,7 +372,7 @@
   window.autoManufactureYear = {{ auto_manufacture_year | default(None) | tojson | safe }};
   window.prefillData = {{ prefill | default(None) | tojson | safe }};
   window.defaultCityId = {{ default_city_id | default(None) | tojson | safe }};
-  window.photoLimit = {{ verification_photo_limit | default(None) | tojson | safe }};
+  window.photoLimit = {{ image_limit_per_verification | default(None) | tojson | safe }};
   window.companyTz = {{ company_tz | default('Europe/Moscow') | tojson | safe }};
 </script>
 

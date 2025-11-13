@@ -1,4 +1,4 @@
-from infrastructure.cache.redis_client import redis
+from infrastructure.cache import redis
 
 
 def _company_delete_key(company_id: int) -> str:

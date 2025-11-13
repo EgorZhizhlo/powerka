@@ -55,7 +55,8 @@ class Settings(BaseSettings):
     entries_per_page: Final[int] = 20
 
     # === Лимит фото в поверке ===
-    verification_photo_limit: Final[int] = 5
+    image_limit_per_verification: Final[int] = 15
+    image_max_size_mb: Final[int] = 5 * 1024 * 1024  # 5 MB
 
     # === URL ===
     logout_url: str = "/logout"
@@ -66,6 +67,12 @@ class Settings(BaseSettings):
     calendar_url: str = "/calendar"
 
     max_int: int = 2147483647
+
+    allowed_image_formats: set[str] = {
+        'image/jpeg', 'image/jpg', 'image/png', 'image/gif',
+        'image/webp', 'image/bmp', 'image/tiff', 'image/heic',
+        'image/heif'
+    }
 
     allowed_photo_ext: set[str] = {
         "jpeg", "jpg", "png", "heic", "heif", "webp"

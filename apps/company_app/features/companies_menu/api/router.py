@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.utils.time_utils import date_utc_now
 from core.exceptions import CustomHTTPException, check_is_none
-from infrastructure.cache.redis_client import redis
+from infrastructure.cache import redis
 from core.config import settings
 from core.cache.company_timezone_cache import company_tz_cache
 

@@ -12,7 +12,9 @@ class UploadFile(TypedDict):
 
 class AsyncYandexDiskAPI:
     BASE_URL = "https://cloud-api.yandex.net/v1/disk"
-    ROOT_DIR = "/ПОВЕРКА__НЕ_УДАЛЯТЬ"
+    ROOT_DIR = "/ТЕСТОВАЯ_ПАПКА"
+
+    # "/ПОВЕРКА__НЕ_УДАЛЯТЬ"
 
     def __init__(self, token: str, timeout: float = 10.0, connect_timeout: float = 5.0):
         self.client = httpx.AsyncClient(
@@ -85,9 +87,17 @@ class AsyncYandexDiskAPI:
 
 class VerificationYandexDiskAPI(AsyncYandexDiskAPI):
     async def ensure_verification_path(
-        self, company_dir: str, verifier_dir: str, date_dir: str, verification_dir: str
+        self,
+        company_dir: str,
+        employee_fio: str,
+        date_dir: str,
+        act_series: str,
+        act_number: str
     ) -> str:
-        p = f"{self.ROOT_DIR}/{company_dir}/{verifier_dir}/{date_dir}/{verification_dir}"
+        p = (
+            f"{self.ROOT_DIR}/{company_dir}/{employee_fio}/"
+            f"{date_dir}/{act_series}/{act_number}"
+        )
         await self.ensure_directory(p)
         return p
 
@@ -95,13 +105,14 @@ class VerificationYandexDiskAPI(AsyncYandexDiskAPI):
         self,
         company_id: int,
         company_dir: str,
-        verifier_dir: str,
+        employee_fio: str,
         date_dir: str,
-        verification_dir: str,
+        act_series: str,
+        act_number: str,
         file_names: List[str],
     ) -> None:
         base = await self.ensure_verification_path(
-            company_dir, verifier_dir, date_dir, verification_dir
+            company_dir, employee_fio, date_dir, act_series, act_number
         )
 
         async def _delete(name: str) -> None:
@@ -120,14 +131,16 @@ class VerificationYandexDiskAPI(AsyncYandexDiskAPI):
     async def upload_verification_files(
         self,
         company_dir: str,
-        verifier_dir: str,
+        employee_fio: str,
         date_dir: str,
-        verification_dir: str,
+        act_series: str,
+        act_number: str,
         files: List[UploadFile],
         concurrency: int = 5,
     ) -> List[str]:
         base = await self.ensure_verification_path(
-            company_dir, verifier_dir, date_dir, verification_dir)
+            company_dir, employee_fio, date_dir, act_series, act_number
+        )
         concurrency = concurrency or len(files)
         sem = asyncio.Semaphore(concurrency)
 

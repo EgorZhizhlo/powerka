@@ -180,7 +180,7 @@ async def create_verification_entry_by_order_page(
         "default_series_id": default_series_id,
         "prefill": prefill,
         "order_id": order.id,
-        "verification_photo_limit": settings.verification_photo_limit,
+        "image_limit_per_verification": settings.image_limit_per_verification,
     }
     context.update(employee_data.__dict__)
     context.update(c_field)

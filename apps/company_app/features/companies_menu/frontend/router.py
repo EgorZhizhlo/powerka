@@ -13,7 +13,7 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.exceptions import CustomHTTPException, check_is_none
-from infrastructure.cache.redis_client import redis
+from infrastructure.cache import redis
 from core.config import settings
 from core.timezones import ALL_TIMEZONES
 from core.templates.template_manager import templates

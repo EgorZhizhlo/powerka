@@ -31,7 +31,7 @@ from core.exceptions import (
     CompanyVerificationLimitException,
     YandexTokenException
 )
-from infrastructure.cache.redis_client import redis
+from infrastructure.cache import redis
 
 from apps.verification_app.exceptions import (
     VerificationEntryException,
@@ -77,7 +77,7 @@ from apps.verification_app.schemas.verifications_control import (
 
 verifications_control_api_router = APIRouter(
     prefix='/api/verifications-control')
-VER_PHOTO_LIMIT: int = settings.verification_photo_limit
+VER_PHOTO_LIMIT: int = settings.image_limit_per_verification
 ALLOWED_PHOTO_EXT: set[str] = settings.allowed_photo_ext
 
 
@@ -590,14 +590,15 @@ async def update_verification_entry(
         series = v.series
         act_number = v.act_number
 
-        verifier_dir = f"{verifier.last_name.title()} "
-        f"{verifier.name.title()} "
-        f"{verifier.patronymic.title()}"
+        employee_fio = (
+            f"{verifier.last_name.title()} "
+            f"{verifier.name.title()} "
+            f"{verifier.patronymic.title()}"
+        )
         date_dir = verification_entry_data.verification_date.strftime(
             "%d-%m-%Y")
-        verification_dir = f"{series.name} "
-        f"{act_number.act_number} "
-        f"{v.factory_number}"
+        act_series = series.name
+        act_number_str = act_number.act_number
 
         yandex = VerificationYandexDiskAPI(
             company_params.yandex_disk_token
@@ -626,9 +627,10 @@ async def update_verification_entry(
             await yandex.delete_verification_files(
                 company_id,
                 company_params.name,
-                verifier_dir,
+                employee_fio,
                 date_dir,
-                verification_dir,
+                act_series,
+                act_number_str,
                 [p.file_name for p in photos_to_delete],
             )
             for p in photos_to_delete:
@@ -755,9 +757,14 @@ async def upload_verification_photos(
             {"file_name": str(idx), "file_extension": ext, "file_bytes": content})
 
     verifier = entry.verifier
-    verifier_dir = f"{verifier.last_name.title()} {verifier.name.title()} {verifier.patronymic.title()}"
+    employee_fio = (
+        f"{verifier.last_name.title()} "
+        f"{verifier.name.title()} "
+        f"{verifier.patronymic.title()}"
+    )
     date_dir = entry.verification_date.strftime("%d-%m-%Y")
-    verification_dir = f"{entry.series.name} {entry.act_number.act_number} {entry.factory_number}"
+    act_series = entry.series.name
+    act_number = entry.act_number.act_number
 
     yandex = VerificationYandexDiskAPI(company_params.yandex_disk_token)
     if not await yandex.check_token():
@@ -765,9 +772,10 @@ async def upload_verification_photos(
 
     public_urls = await yandex.upload_verification_files(
         company_params.name,
-        verifier_dir,
+        employee_fio,
         date_dir,
-        verification_dir,
+        act_series,
+        act_number,
         upload_list,
         concurrency=len(upload_list)
     )
@@ -832,14 +840,26 @@ async def delete_verification_entry(
 
     if token:
         verifier = ver_entry.verifier
+        company_name = company.name.replace('/', '').replace('\\', '')
+        employee_fio = (
+            f"{verifier.last_name.title()} "
+            f"{verifier.name.title()} "
+            f"{verifier.patronymic.title()}"
+        )
+        date_str = ver_entry.verification_date.strftime('%d-%m-%Y')
+        act_series = ver_entry.series.name
+        act_number = (
+            ver_entry.act_number.act_number
+            if ver_entry.act_number else ''
+        )
+
         folder_path = (
             f"{VerificationYandexDiskAPI.ROOT_DIR}/"
-            f"{company.name.replace('/', '').replace('\\\\', '')}|{company_id}/"
-            f"{verifier.last_name.title()} {verifier.name.title()} {verifier.patronymic.title()}|{verifier.id}/"
-            f"{ver_entry.verification_date.strftime('%d-%m-%Y')}/"
-            f"{ver_entry.series.name} "
-            f"{ver_entry.act_number.act_number if ver_entry.act_number else ''} "
-            f"{ver_entry.factory_number}|{ver_entry.id}"
+            f"{company_name}/"
+            f"{employee_fio}/"
+            f"{date_str}/"
+            f"{act_series}/"
+            f"{act_number}"
         )
         try:
             y = VerificationYandexDiskAPI(token)

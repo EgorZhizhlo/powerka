@@ -19,7 +19,7 @@ from apps import (
     tariff_router
 )
 
-from infrastructure.cache.redis_client import init_redis, close_redis
+from infrastructure.cache import init_redis, close_redis
 from infrastructure.db.session import init_db, close_db
 
 

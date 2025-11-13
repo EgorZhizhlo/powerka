@@ -1,8 +1,7 @@
 import json
 from typing import Optional, Dict, Any
-from datetime import date
 
-from infrastructure.cache.redis_client import redis
+from infrastructure.cache import redis
 from core.config import settings
 from core.utils.time_utils import date_utc_now
 

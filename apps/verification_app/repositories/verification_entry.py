@@ -75,15 +75,12 @@ class VerificationEntryRepository:
             )
             .options(
                 joinedload(VerificationEntryModel.series).load_only(
-                    ActSeriesModel.id,
                     ActSeriesModel.name
                 ),
                 joinedload(VerificationEntryModel.act_number).load_only(
-                    ActNumberModel.id,
                     ActNumberModel.act_number
                 ),
                 joinedload(VerificationEntryModel.verifier).load_only(
-                    VerifierModel.id,
                     VerifierModel.last_name,
                     VerifierModel.name,
                     VerifierModel.patronymic,
@@ -261,17 +258,14 @@ class VerificationEntryRepository:
                     EquipmentInfoModel.type
                 ),
                 joinedload(VerificationEntryModel.company).load_only(
-                    CompanyModel.id,
                     CompanyModel.name,
                     CompanyModel.yandex_disk_token,
                     CompanyModel.verification_date_block,
                 ),
                 joinedload(VerificationEntryModel.series).load_only(
-                    ActSeriesModel.id,
                     ActSeriesModel.name
                 ),
                 joinedload(VerificationEntryModel.act_number).load_only(
-                    ActNumberModel.id,
                     ActNumberModel.act_number,
                     ActNumberModel.count,
                     ActNumberModel.client_full_name,
@@ -339,27 +333,22 @@ class VerificationEntryRepository:
                     VerificationEntryModel.series_id,
                     VerificationEntryModel.act_number_id,
                     VerificationEntryModel.location_id,
-                    VerificationEntryModel.factory_number,
                     VerificationEntryModel.company_id,
                 ),
                 joinedload(VerificationEntryModel.company).load_only(
-                    CompanyModel.id,
                     CompanyModel.name,
                     CompanyModel.yandex_disk_token,
                     CompanyModel.verification_date_block,
                 ),
                 joinedload(VerificationEntryModel.verifier).load_only(
-                    VerifierModel.id,
                     VerifierModel.last_name,
                     VerifierModel.name,
                     VerifierModel.patronymic,
                 ),
                 joinedload(VerificationEntryModel.series).load_only(
-                    ActSeriesModel.id,
                     ActSeriesModel.name
                 ),
                 joinedload(VerificationEntryModel.act_number).load_only(
-                    ActNumberModel.id,
                     ActNumberModel.act_number,
                     ActNumberModel.count,
                 ),

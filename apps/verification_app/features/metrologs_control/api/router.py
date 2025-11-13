@@ -31,7 +31,7 @@ from apps.verification_app.schemas.metrologs_control_a import MetrologInfoForm
 
 
 metrologs_control_api_router = APIRouter(prefix='/api/metrologs-control')
-VER_PHOTO_LIMIT = settings.verification_photo_limit
+VER_PHOTO_LIMIT = settings.image_limit_per_verification
 
 
 @metrologs_control_api_router.post("/create")
