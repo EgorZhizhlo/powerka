@@ -52,6 +52,14 @@ class CreateVerificationEntryForm(BaseModel):
 
     company_tz: str = Field(default="Europe/Moscow", max_length=50)
 
+    deleted_images_id: List[int] = Field(default_factory=list)
+
+    @field_validator("deleted_images_id", mode="before")
+    def clean_deleted_images_id(cls, v):
+        if not v:
+            return []
+        return [int(i) for i in v if str(i).strip().isdigit()]
+
     @model_validator(mode="after")
     def validate_verification_period(self):
         current_date = get_current_date_in_tz(self.company_tz)
@@ -80,15 +88,7 @@ class CreateVerificationEntryForm(BaseModel):
 
 
 class UpdateVerificationEntryForm(CreateVerificationEntryForm):
-    deleted_images_id: List[int] = Field(default_factory=list)
-
     verifier_id: int = Field(..., ge=1, le=settings.max_int)
-
-    @field_validator("deleted_images_id", mode="before")
-    def clean_deleted_images_id(cls, v):
-        if not v:
-            return []
-        return [int(i) for i in v if str(i).strip().isdigit()]
 
 
 class MetrologInfoForm(BaseModel):

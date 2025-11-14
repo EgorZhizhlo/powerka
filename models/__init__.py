@@ -1,3 +1,4 @@
+from models.act_number_photo import ActNumberPhotoModel
 from models.act_number import ActNumberModel
 from models.act_series import ActSeriesModel
 from models.appeal import AppealModel
@@ -35,6 +36,7 @@ from models.verifier_equipment_history import VerifierEquipmentHistoryModel
 from models.verifier import VerifierModel
 
 __all__ = [
+    "ActNumberPhotoModel",
     "ActNumberModel",
     "ActSeriesModel",
     "AppealModel",

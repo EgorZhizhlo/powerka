@@ -52,7 +52,12 @@ class ActNumberModel(BaseModel, TimeMixin):
         nullable=True
     )
 
-    # --- relationships ---
+    photos = relationship(
+        "ActNumberPhotoModel",
+        back_populates="act_number",
+        cascade="all, delete-orphan"
+    )
+
     series = relationship(
         "ActSeriesModel",
         back_populates="act_number",

@@ -16,11 +16,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.utils.time_utils import date_utc_now
 from core.exceptions import CustomHTTPException, check_is_none
-from infrastructure.cache import redis
 from core.config import settings
 from core.cache.company_timezone_cache import company_tz_cache
 
+from infrastructure.cache import redis
 from infrastructure.db import async_db_session_begin
+from infrastructure.yandex_disk.service import get_yandex_service
+
 from models.enums import EmployeeStatus
 from models import (
     EmployeeModel, CompanyModel, VerifierModel, VerificationLogModel,
@@ -30,7 +32,6 @@ from models import (
 from apps.company_app.common import (
     _register_delete_vote, _clear_delete_votes, _try_acquire_delete_lock,
     _release_delete_lock, _company_delete_key,
-    action_with_ya_disk,
     check_employee_limit_available,
     recalculate_employee_count
 )
@@ -93,12 +94,8 @@ async def api_create_company(
     session.add(params)
 
     if admin_form.yandex_disk_token:
-        await action_with_ya_disk(
-            token=admin_form.yandex_disk_token,
-            company_id=company.id,
-            old_company_name=None,
-            new_company_name=company.name
-        )
+        async with get_yandex_service(admin_form.yandex_disk_token) as disk:
+            await disk.create_company_folder(company_name=company.name)
 
     for uid in assigned_employee_ids:
         await bump_jwt_token_version(f"user:{uid}:company_version")
@@ -228,12 +225,11 @@ async def api_update_company(
             setattr(params, key, bool(value))
 
     if form_data.yandex_disk_token:
-        await action_with_ya_disk(
-            token=form_data.yandex_disk_token,
-            company_id=company_id,
-            old_company_name=old_company_name,
-            new_company_name=new_company_name
-        )
+        async with get_yandex_service(form_data.yandex_disk_token) as disk:
+            await disk.ensure_company_folder(
+                new_company_name=new_company_name,
+                old_company_name=old_company_name
+            )
 
     removed_ids = old_employee_ids - new_employee_ids
     added_ids = new_employee_ids - old_employee_ids

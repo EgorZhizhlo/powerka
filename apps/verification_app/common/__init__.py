@@ -1,6 +1,3 @@
-from .yandex_disk_api import (
-    VerificationYandexDiskAPI, AsyncYandexDiskAPI, APIError
-)
 from .filter_functions import entry_filter, data_filter
 from .auto_choose_verifier import (
     act_number_for_create, check_act_number_limit, get_verifier_id_create,
@@ -21,9 +18,6 @@ from .tariff_verification_service import (
 )
 
 __all__ = [
-    "VerificationYandexDiskAPI",
-    "AsyncYandexDiskAPI",
-    "APIError",
     "entry_filter",
     "data_filter",
     "act_number_for_create",

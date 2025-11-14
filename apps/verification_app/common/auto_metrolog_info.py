@@ -1,27 +1,60 @@
+import aiohttp
+import asyncio
 import random
-import httpx
 from models.enums import VerificationWaterType
 
 
-async def get_pressure_from_lat_long(latitude: float, longitude: float):
-    async with httpx.AsyncClient() as client:
-        params = {
-            'latitude': latitude,
-            'longitude': longitude,
-            'current': "surface_pressure",
-            'past_days': 1,
-            'forecast_days': 1
-        }
-        response = await client.get(
-            'https://api.open-meteo.com/v1/forecast', params=params)
+_OPENMETEO_SESSION: aiohttp.ClientSession | None = None
 
-        if response.status_code == 200:
-            data = response.json()
-            current = data.get("current")
-            if current is not None:
-                surface_pressure = current.get("surface_pressure")
-                if surface_pressure is not None:
-                    return surface_pressure * 0.1
+
+async def get_openmeteo_session() -> aiohttp.ClientSession:
+    """Создаёт единый пул соединений для open-meteo."""
+    global _OPENMETEO_SESSION
+
+    if _OPENMETEO_SESSION is None or _OPENMETEO_SESSION.closed:
+        _OPENMETEO_SESSION = aiohttp.ClientSession(
+            timeout=aiohttp.ClientTimeout(total=15),
+            connector=aiohttp.TCPConnector(limit=10),
+            headers={"Accept": "application/json"}
+        )
+    return _OPENMETEO_SESSION
+
+
+async def get_pressure_from_lat_long(latitude: float, longitude: float):
+    session = await get_openmeteo_session()
+
+    params = {
+        "latitude": latitude,
+        "longitude": longitude,
+        "current": "surface_pressure",
+        "past_days": 1,
+        "forecast_days": 1,
+    }
+
+    for attempt in range(3):
+        try:
+            async with session.get("https://api.open-meteo.com/v1/forecast", params=params) as resp:
+
+                if resp.status in (429, 500, 502, 503):
+                    await asyncio.sleep(0.2 * (attempt + 1))
+                    continue
+
+                resp.raise_for_status()
+                data = await resp.json()
+
+                current = data.get("current")
+                if current:
+                    surface_pressure = current.get("surface_pressure")
+                    if surface_pressure is not None:
+                        return surface_pressure * 0.1   # твоя логика перевода
+
+                return False
+
+        except Exception:
+            if attempt == 2:
+                return False
+            await asyncio.sleep(0.2 * (attempt + 1))
+
     return False
 
 
@@ -162,10 +195,10 @@ async def right_automatisation_metrolog(
 
     # Атмосферное давление
     if latitude is not None and longitude is not None:
-        presure = round(await get_pressure_from_lat_long(latitude, longitude), 3)
-        if isinstance(presure, float):
-            metrolog_data.before_pressure = presure
-            metrolog_data.after_pressure = presure
+        pressure = await get_pressure_from_lat_long(latitude, longitude)
+        if isinstance(pressure, float):
+            metrolog_data.before_pressure = pressure
+            metrolog_data.after_pressure = pressure
     else:
         if default_pressure is not None:
             default_pressure = round(default_pressure, 3)

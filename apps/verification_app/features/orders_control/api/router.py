@@ -1,6 +1,9 @@
 import math
 from typing import List
-from fastapi import APIRouter, Response, HTTPException, Depends, Body, Query
+from fastapi import (
+    APIRouter, Response, HTTPException, UploadFile,
+    Depends, Body, Query, File
+)
 from fastapi import status as status_code
 
 from sqlalchemy import select, update
@@ -38,6 +41,7 @@ from apps.verification_app.schemas.orders_control import (
 from apps.verification_app.schemas.verifications_control import (
     CreateVerificationEntryForm, MetrologInfoForm
 )
+from apps.verification_app.services import process_act_number_photos
 from apps.verification_app.repositories import (
     EmployeeCitiesRepository, read_employee_cities_repository,
     CompanyRepository, read_company_repository,
@@ -254,11 +258,15 @@ async def delete_counter_assignment(
 @orders_control_api_router.post("/create/")
 async def create_verification_entry_by_order(
     verification_entry_data: CreateVerificationEntryForm = Body(...),
+    new_images: List[UploadFile] = File(default_factory=list),
+
     company_id: int = Query(..., ge=1, le=settings.max_int),
     order_id: int = Query(..., ge=1, le=settings.max_int),
     redirect_to_metrolog_info: bool = Query(...),
+
     company_tz: str = Depends(get_company_timezone),
     session: AsyncSession = Depends(async_db_session_begin),
+
     employee_data: JwtData = Depends(
         check_active_access_verification
     ),
@@ -394,12 +402,6 @@ async def create_verification_entry_by_order(
             await session.delete(counter_row)
 
     await session.flush()
-    await session.refresh(
-        verification_entry,
-        attribute_names=[
-            "series", "act_number", "reason", "equipments", "verifier"
-        ]
-    )
 
     if verification_entry.location_id:
         await location_repo.increment_count(verification_entry.location_id)
@@ -410,14 +412,47 @@ async def create_verification_entry_by_order(
         delta=1
     )
 
+    if company_params.yandex_disk_token:
+        await session.refresh(
+            verification_entry,
+            attribute_names=["employee", "series", "act_number"]
+        )
+
+        employee = verification_entry.employee
+        employee_fio = (
+            f"{employee.last_name.title()} "
+            f"{employee.name.title()} "
+            f"{employee.patronymic.title()}"
+        )
+
+        await process_act_number_photos(
+            session=session,
+            act_number_id=verification_entry.act_number_id,
+            company_name=company_params.name,
+            employee_fio=employee_fio,
+            document_date=verification_entry.verification_date,
+            act_series=verification_entry.series.name,
+            act_number=verification_entry.act_number.act_number,
+            token=company_params.yandex_disk_token,
+            new_images=new_images or [],
+            deleted_images_id=verification_entry_data.deleted_images_id or []
+        )
+
     if company_params.auto_metrolog:
+        await session.refresh(
+            verification_entry,
+            attribute_names=[
+                "reason", "equipments"
+            ]
+        )
+
         is_correct = None
         reason_type = None
 
         if not verification_entry:
             raise VerificationEntryException
 
-        if not verification_entry.verifier:
+        if not verification_entry.verifier_id:
             raise VerificationVerifierException
 
         if not verification_entry.equipments:
@@ -457,7 +492,6 @@ async def create_verification_entry_by_order(
 
         session.add(metrolog_info)
         await session.flush()
-        await session.refresh(metrolog_info)
 
         await clear_verification_cache(company_id)
 

@@ -1,5 +1,4 @@
 from .context_maker import make_context
-from .yandex_disk_api import action_with_ya_disk
 from .delete_company_waiter import (
     _register_delete_vote, _clear_delete_votes, _try_acquire_delete_lock,
     _release_delete_lock, _company_delete_key

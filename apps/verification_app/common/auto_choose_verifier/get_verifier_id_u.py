@@ -85,7 +85,6 @@ async def act_number_for_update(
         setattr(act_number, field, value)
 
     await session.flush()
-    await session.refresh(act_number)
     return act_number
 
 

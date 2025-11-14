@@ -10,13 +10,6 @@ from fastapi.encoders import jsonable_encoder
 from sqlalchemy import select, delete, exists
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from infrastructure.db import async_db_session_begin
-from models import (
-    VerificationEntryModel, MetrologInfoModel,
-    ActNumberModel, VerificationEntryPhotoModel
-)
-from models.enums import ReasonType
-
 from access_control import (
     JwtData,
     check_access_verification,
@@ -24,14 +17,22 @@ from access_control import (
     admin_director
 )
 
+from infrastructure.cache import redis
+from infrastructure.db import async_db_session_begin
+from infrastructure.yandex_disk.service import get_yandex_service
+
+from models import (
+    VerificationEntryModel, MetrologInfoModel,
+    ActNumberModel
+)
+from models.enums import ReasonType
+
 from core.config import settings
 from core.db.dependencies import get_company_timezone
 from core.utils.time_utils import validate_company_timezone
 from core.exceptions import (
     CompanyVerificationLimitException,
-    YandexTokenException
 )
-from infrastructure.cache import redis
 
 from apps.verification_app.exceptions import (
     VerificationEntryException,
@@ -45,7 +46,6 @@ from apps.verification_app.exceptions import (
     DeleteVerificationEntryAccessException,
 )
 from apps.verification_app.common import (
-    VerificationYandexDiskAPI, APIError,
     check_equip_conditions, act_number_for_create, check_act_number_limit,
     get_verifier_id_create, right_automatisation_metrolog,
 
@@ -68,6 +68,7 @@ from apps.verification_app.repositories import (
     LocationRepository, action_location_repository,
     VerificationLogRepository, action_verification_log_repository,
 )
+from apps.verification_app.services import process_act_number_photos
 from apps.verification_app.schemas.verifications_control import (
     VerificationEntryFilter, VerificationEntryListOut, VerificationEntryOut,
     CreateVerificationEntryForm, UpdateVerificationEntryForm,
@@ -149,10 +150,14 @@ async def get_verification_entries(
 @verifications_control_api_router.post("/create")
 async def create_verification_entry(
     verification_entry_data: CreateVerificationEntryForm = Body(...),
+    new_images: List[UploadFile] = File(default_factory=list),
+
     company_id: int = Query(..., ge=1, le=settings.max_int),
     redirect_to_metrolog_info: bool = Query(...),
+
     company_tz: str = Depends(get_company_timezone),
     session: AsyncSession = Depends(async_db_session_begin),
+
     employee_data: JwtData = Depends(
         check_active_access_verification),
     empl_cities_repo: EmployeeCitiesRepository = Depends(
@@ -267,12 +272,6 @@ async def create_verification_entry(
 
     session.add(verification_entry)
     await session.flush()
-    await session.refresh(
-        verification_entry,
-        attribute_names=[
-            "series", "act_number", "reason", "equipments", "verifier"
-        ]
-    )
 
     if verification_entry.location_id:
         await location_repo.increment_count(verification_entry.location_id)
@@ -281,7 +280,43 @@ async def create_verification_entry(
         session=session, company_id=company_id, delta=1
     )
 
+    if company_params.yandex_disk_token:
+        await session.refresh(
+            verification_entry,
+            attribute_names=["employee", "series", "act_number"]
+        )
+
+        v = verification_entry
+        employee = v.employee
+        series = v.series
+        act_num = v.act_number
+
+        employee_fio = (
+            f"{employee.last_name.title()} "
+            f"{employee.name.title()} "
+            f"{employee.patronymic.title()}"
+        )
+
+        await process_act_number_photos(
+            session=session,
+            act_number_id=v.act_number_id,
+            company_name=company_params.name,
+            employee_fio=employee_fio,
+            verification_date=v.verification_date,
+            act_series=series.name,
+            act_number=act_num.act_number,
+            token=company_params.yandex_disk_token,
+            new_images=new_images or [],
+            deleted_images_id=verification_entry_data.deleted_images_id or []
+        )
+
     if company_params.auto_metrolog:
+        await session.refresh(
+            verification_entry,
+            attribute_names=[
+                "reason", "equipments"
+            ]
+        )
         is_correct = None
         reason_type = None
 
@@ -328,7 +363,6 @@ async def create_verification_entry(
 
         session.add(metrolog_info)
         await session.flush()
-        await session.refresh(metrolog_info)
 
         await clear_verification_cache(company_id)
 
@@ -351,9 +385,12 @@ async def create_verification_entry(
 @verifications_control_api_router.post("/update")
 async def update_verification_entry(
     verification_entry_data: UpdateVerificationEntryForm = Body(...),
+    new_images: List[UploadFile] = File(default_factory=list),
+
     company_id: int = Query(..., ge=1, le=settings.max_int),
     verification_entry_id: int = Query(..., ge=1, le=settings.max_int),
     redirect_to_metrolog_info: bool = Query(...),
+
     company_tz: str = Depends(get_company_timezone),
     session: AsyncSession = Depends(async_db_session_begin),
     employee_data: JwtData = Depends(
@@ -417,7 +454,7 @@ async def update_verification_entry(
     employee_cities_id = await empl_cities_repo.get_cities_id(employee_id)
     if employee_cities_id:
         if verification_entry.city_id not in employee_cities_id:
-            employee_cities_id.append(employee_cities_id.city_id)
+            employee_cities_id.append(verification_entry.city_id)
         if verification_entry_data.city_id and \
                 verification_entry_data.city_id not in employee_cities_id:
             raise CreateVerificationCitiesBlockException
@@ -459,7 +496,6 @@ async def update_verification_entry(
                 act_number_entry=new_act_number
             )
             verification_entry.act_number_id = new_act_number.id
-            await session.flush()
 
             new_act_number.count -= 1
             last_act_number.count += 1
@@ -484,7 +520,6 @@ async def update_verification_entry(
         verification_entry.act_number_id = new_act_number.id
         new_act_number.count -= 1
 
-    await session.flush()
     await session.refresh(
         verification_entry, attribute_names=["act_number"])
 
@@ -568,16 +603,7 @@ async def update_verification_entry(
     if verification_entry.verification_result:
         verification_entry.reason_id = None
 
-    await session.flush()
-    await session.refresh(
-        verification_entry,
-        attribute_names=[
-            "verifier", "series", "act_number", "reason",
-            "equipments", "metrolog"
-        ]
-    )
-
-    new_location_id = verification_entry_data.location_id
+    new_location_id = verification_entry.location_id
     if old_location_id != new_location_id:
         if old_location_id:
             await location_repo.decrement_count(old_location_id)
@@ -585,63 +611,50 @@ async def update_verification_entry(
             await location_repo.increment_count(new_location_id)
 
     if company_params.yandex_disk_token:
+        await session.refresh(
+            verification_entry,
+            attribute_names=[
+                "employee",
+                "series",
+                "act_number"
+            ]
+        )
+
         v = verification_entry
-        verifier = v.verifier
+        employee = v.employee
         series = v.series
-        act_number = v.act_number
+        act_num = v.act_number
 
         employee_fio = (
-            f"{verifier.last_name.title()} "
-            f"{verifier.name.title()} "
-            f"{verifier.patronymic.title()}"
-        )
-        date_dir = verification_entry_data.verification_date.strftime(
-            "%d-%m-%Y")
-        act_series = series.name
-        act_number_str = act_number.act_number
-
-        yandex = VerificationYandexDiskAPI(
-            company_params.yandex_disk_token
+            f"{employee.last_name.title()} "
+            f"{employee.name.title()} "
+            f"{employee.patronymic.title()}"
         )
 
-        if not await yandex.check_token():
-            raise YandexTokenException(
-                401,
-                detail="Невалидный токен Яндекс.Диск"
-            )
-
-        result = await session.execute(
-            select(VerificationEntryPhotoModel).where(
-                VerificationEntryPhotoModel.verification_entry_id == v.id
-            )
+        await process_act_number_photos(
+            session=session,
+            act_number_id=v.act_number_id,
+            company_name=company_params.name,
+            employee_fio=employee_fio,
+            verification_date=v.verification_date,
+            act_series=series.name,
+            act_number=act_num.act_number,
+            token=company_params.yandex_disk_token,
+            new_images=new_images or [],
+            deleted_images_id=verification_entry_data.deleted_images_id or []
         )
-        existing_photos = result.scalars().all()
-
-        photos_to_delete = [
-            p
-            for p in existing_photos
-            if p.id in verification_entry_data.deleted_images_id
-        ]
-
-        if photos_to_delete:
-            await yandex.delete_verification_files(
-                company_id,
-                company_params.name,
-                employee_fio,
-                date_dir,
-                act_series,
-                act_number_str,
-                [p.file_name for p in photos_to_delete],
-            )
-            for p in photos_to_delete:
-                await session.delete(p)
-            await session.flush()
 
     if company_params.auto_metrolog:
+        await session.refresh(
+            verification_entry,
+            attribute_names=[
+                "reason", "equipments", "metrolog"
+            ]
+        )
         if not verification_entry:
             raise VerificationEntryException
 
-        if not verification_entry.verifier:
+        if not verification_entry.verifier_id:
             raise VerificationVerifierException
 
         if not verification_entry.equipments:
@@ -691,7 +704,6 @@ async def update_verification_entry(
 
             session.add(metrolog_info)
             await session.flush()
-            await session.refresh(metrolog_info)
             await clear_verification_cache(company_id)
 
         return {
@@ -708,90 +720,6 @@ async def update_verification_entry(
         "metrolog_info_id": None,
         "redirect_to": "m" if redirect_to_metrolog_info else "v"
     }
-
-
-@verifications_control_api_router.post("/upload-photos")
-async def upload_verification_photos(
-    verification_entry_id: int = Query(..., ge=1, le=settings.max_int),
-    company_id: int = Query(..., ge=1, le=settings.max_int),
-    new_images: List[UploadFile] = File(default_factory=list),
-    session: AsyncSession = Depends(async_db_session_begin),
-    company_repo: CompanyRepository = Depends(
-        read_company_repository
-    ),
-    verification_entry_repo: VerificationEntryRepository = Depends(
-        action_verification_entry_repository
-    ),
-):
-    new_images = [f for f in new_images if getattr(f, "filename", "").strip()]
-    if not new_images:
-        raise HTTPException(400, detail="Не выбрано файлов для загрузки.")
-
-    company_params = await company_repo.get_yandex_disk_token()
-    if not company_params.yandex_disk_token:
-        raise HTTPException(400, detail="Не настроен токен Яндекс.Диска.")
-
-    entry = await verification_entry_repo.get_by_id(verification_entry_id)
-    if not entry:
-        raise HTTPException(404, detail="Поверка не найдена.")
-
-    if len(new_images) > VER_PHOTO_LIMIT:
-        raise HTTPException(
-            400, detail=f"Можно загрузить не более {VER_PHOTO_LIMIT} файлов.")
-
-    upload_list: List[Dict[str, Any]] = []
-    for idx, f in enumerate(new_images[:VER_PHOTO_LIMIT], 1):
-        if "." not in f.filename:
-            raise HTTPException(
-                400, detail=f"Файл #{idx} не имеет расширения.")
-        _, ext = f.filename.rsplit(".", 1)
-        ext = ext.lower()
-        if ext not in ALLOWED_PHOTO_EXT:
-            raise HTTPException(
-                400,
-                detail=f"Файл #{idx} «{f.filename}» имеет неподдерживаемый формат «.{ext}». "
-                "Разрешены: jpeg, jpg, png, heic, heif, webp.",
-            )
-        content = await f.read()
-        upload_list.append(
-            {"file_name": str(idx), "file_extension": ext, "file_bytes": content})
-
-    verifier = entry.verifier
-    employee_fio = (
-        f"{verifier.last_name.title()} "
-        f"{verifier.name.title()} "
-        f"{verifier.patronymic.title()}"
-    )
-    date_dir = entry.verification_date.strftime("%d-%m-%Y")
-    act_series = entry.series.name
-    act_number = entry.act_number.act_number
-
-    yandex = VerificationYandexDiskAPI(company_params.yandex_disk_token)
-    if not await yandex.check_token():
-        raise YandexTokenException
-
-    public_urls = await yandex.upload_verification_files(
-        company_params.name,
-        employee_fio,
-        date_dir,
-        act_series,
-        act_number,
-        upload_list,
-        concurrency=len(upload_list)
-    )
-
-    for idx, url in enumerate(public_urls, 1):
-        photo = VerificationEntryPhotoModel(
-            verification_entry_id=entry.id,
-            file_name=f"{idx}.{upload_list[idx - 1]['file_extension']}",
-            url=url
-        )
-        session.add(photo)
-
-    await session.flush()
-    await clear_verification_cache(company_id)
-
-    return {"status": "ok", "uploaded": len(public_urls)}
 
 
 @verifications_control_api_router.delete("/delete")
@@ -823,60 +751,21 @@ async def delete_verification_entry(
     if not ver_entry:
         raise DeleteVerificationEntryAccessException
 
-    token = None
-    company = ver_entry.company
-    if ver_entry.company:
-        token = company.yandex_disk_token
+    token = ver_entry.company.yandex_disk_token if ver_entry.company else None
 
     if ver_entry.location_id:
-        await location_repo.decrement_count(
-            ver_entry.location_id
-        )
+        await location_repo.decrement_count(ver_entry.location_id)
 
-    await verification_entry_repo.delete_related(
-        ver_entry.id
-    )
+    await verification_entry_repo.delete_related(ver_entry.id)
     await session.flush()
 
-    if token:
-        verifier = ver_entry.verifier
-        company_name = company.name.replace('/', '').replace('\\', '')
-        employee_fio = (
-            f"{verifier.last_name.title()} "
-            f"{verifier.name.title()} "
-            f"{verifier.patronymic.title()}"
-        )
-        date_str = ver_entry.verification_date.strftime('%d-%m-%Y')
-        act_series = ver_entry.series.name
-        act_number = (
-            ver_entry.act_number.act_number
-            if ver_entry.act_number else ''
-        )
-
-        folder_path = (
-            f"{VerificationYandexDiskAPI.ROOT_DIR}/"
-            f"{company_name}/"
-            f"{employee_fio}/"
-            f"{date_str}/"
-            f"{act_series}/"
-            f"{act_number}"
-        )
-        try:
-            y = VerificationYandexDiskAPI(token)
-            await y._request(
-                "DELETE", "/resources", params={"path": folder_path}
-            )
-        except APIError as e:
-            if e.status != 404:
-                raise HTTPException(
-                    502,
-                    detail=f"Ошибка удаления папки на Диске: {e}.",
-                )
-
     act_number = ver_entry.act_number
+    delete_from_disk = False
+
     if act_number:
         act_number.count += 1
         if act_number.count >= 4:
+            delete_from_disk = True
             await verification_entry_repo.delete_all_with_act(act_number.id)
         else:
             await verification_entry_repo.delete_entry(ver_entry.id)
@@ -889,6 +778,31 @@ async def delete_verification_entry(
     )
     if verification_log:
         verification_log.verification_limit += 1
+
+    if delete_from_disk and token:
+        employee = ver_entry.verifier
+        employee_fio = (
+            f"{employee.last_name.title()} "
+            f"{employee.name.title()} "
+            f"{employee.patronymic.title()}"
+        )
+
+        async with get_yandex_service(token) as yandex:
+            try:
+                await yandex.delete_resource(
+                    company_name=ver_entry.company.name,
+                    employee_fio=employee_fio,
+                    verification_date=ver_entry.verification_date,
+                    act_series=ver_entry.series.name,
+                    act_number=ver_entry.act_number.act_number,
+                    permanently=True
+                )
+            except HTTPException as e:
+                if e.status_code != 404:
+                    raise HTTPException(
+                        502,
+                        detail=f"Ошибка удаления папки на Я.Диске: {e.detail}"
+                    )
 
     await decrement_verification_count(
         session=session,

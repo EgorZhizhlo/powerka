@@ -80,10 +80,10 @@ class VerificationEntryRepository:
                 joinedload(VerificationEntryModel.act_number).load_only(
                     ActNumberModel.act_number
                 ),
-                joinedload(VerificationEntryModel.verifier).load_only(
-                    VerifierModel.last_name,
-                    VerifierModel.name,
-                    VerifierModel.patronymic,
+                joinedload(VerificationEntryModel.employee).load_only(
+                    EmployeeModel.last_name,
+                    EmployeeModel.name,
+                    EmployeeModel.patronymic,
                 ),
             )
         )
@@ -340,10 +340,10 @@ class VerificationEntryRepository:
                     CompanyModel.yandex_disk_token,
                     CompanyModel.verification_date_block,
                 ),
-                joinedload(VerificationEntryModel.verifier).load_only(
-                    VerifierModel.last_name,
-                    VerifierModel.name,
-                    VerifierModel.patronymic,
+                joinedload(VerificationEntryModel.employee).load_only(
+                    EmployeeModel.last_name,
+                    EmployeeModel.name,
+                    EmployeeModel.patronymic,
                 ),
                 joinedload(VerificationEntryModel.series).load_only(
                     ActSeriesModel.name
