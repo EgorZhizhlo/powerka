@@ -74,11 +74,17 @@
 {% include '/appeals/modals/appeal_detail.html' %}
 {% include '/appeals/modals/appeal_edit.html' %}
 {% include '/appeals/modals/appeal_delete.html' %}
+{% include '/appeals/modals/appeal_transfer.html' %}
 
 <script>
   window.companyId     = {{ company_id }};
-  window.customerField = {{ customer_field | tojson }};
   window.mapOfStatus   = {{ map_of_status | tojson }};
+  window.customerField = {{ customer_field | tojson }};
+  window.customerFieldRequired = {{ customer_field_required | tojson }};
+  window.priceField = {{ price_field | tojson }};
+  window.priceFieldRequired = {{ price_field_required | tojson }};
+  window.waterField = {{ water_field | tojson }};
+  window.waterFieldRequired = {{ water_field_required | tojson }};
 </script>
 
 <script type="module" src="/static/calendar/appeals/js/appeals_script.js"></script>

@@ -1,4 +1,4 @@
-import { deleteAppeal } from './api_requests.js';
+import { deleteAppeal } from '/static/calendar/appeals/js/api_requests.js';
 
 export function openDeleteModal(id) {
   const modalEl = document.getElementById('modal-delete');

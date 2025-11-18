@@ -17,24 +17,23 @@ class DispatcherSchema(BaseModel):
 
 class AppealSchema(BaseModel):
     id: Optional[int]
-
-    dispatcher: DispatcherSchema
+    dispatcher: Optional[DispatcherSchema]
     date_of_get: Optional[datetime_]
     client_full_name: Optional[str]
     address: Optional[str]
     phone_number: Optional[str]
     additional_info: Optional[str]
-    status: Optional[AppealStatus]
+    status: AppealStatus
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class AppealFormSchema(BaseModel):
-    client_full_name: Optional[str]
-    address: Optional[str]
-    phone_number: Optional[str]
-    additional_info: Optional[str]
-    status: Optional[AppealStatus]
+    client_full_name: Optional[str] = None
+    address: Optional[str] = None
+    phone_number: Optional[str] = None
+    additional_info: Optional[str] = None
+    status: AppealStatus = AppealStatus.accepted
 
     model_config = ConfigDict(from_attributes=True)
 

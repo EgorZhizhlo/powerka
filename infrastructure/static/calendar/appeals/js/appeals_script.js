@@ -91,7 +91,7 @@ function renderRow(app) {
     tbody.append(tr);
 }
 
-window.loadAppeals = async () => {
+export async function loadAppeals() {
     showSpinner();
     tbody.innerHTML = '';
     try {
@@ -111,7 +111,9 @@ window.loadAppeals = async () => {
     } finally {
         hideSpinner();
     }
-};
+}
+
+window.loadAppeals = loadAppeals;
 
 // Инициализация модалки «Создать»
 initCreateModal();

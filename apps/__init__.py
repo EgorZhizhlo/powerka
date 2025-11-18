@@ -3,6 +3,7 @@ from apps.calendar_app import calendar_router
 from apps.company_app import company_router
 from apps.verification_app import verification_router
 from apps.tariff_app import tariff_router
+from apps.webhook_app import webhook_router
 
 
 __all__ = [
@@ -11,4 +12,5 @@ __all__ = [
     "company_router",
     "verification_router",
     "tariff_router",
+    "webhook_router",
 ]

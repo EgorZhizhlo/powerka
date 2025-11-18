@@ -74,18 +74,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
   const onRegistryChanged = async (e) => {
     if (isInitialRegistryLoad) {
-      console.log('[onRegistryChanged] Пропуск - идёт начальная загрузка');
-      console.log('[onRegistryChanged] Пропуск - идёт начальная загрузка');
       return;
     }
 
     const selectedId =
       (e && e.params && e.params.data && e.params.data.id) ||
       $('#registry_number_id').val();
-
-    console.log('[onRegistryChanged] Событие:', e.type, 'selectedId:', selectedId);
-
-    console.log('[onRegistryChanged] Событие:', e.type, 'selectedId:', selectedId);
 
     if (!selectedId) {
       resetRegistryDependentFields();
@@ -182,8 +176,6 @@ function applyMPI() {
 
 async function loadRegistryData(registryNumberId, { isInitial = false } = {}) {
   if (!registryNumberId) return;
-  console.log('[loadRegistryData] ВЫЗОВ:', { registryNumberId, isInitial, autoManufactureYear, userStatus });
-  console.log('[loadRegistryData] ВЫЗОВ:', { registryNumberId, isInitial, autoManufactureYear, userStatus });
   try {
     const params = new URLSearchParams({
       company_id: companyId,
@@ -237,27 +229,20 @@ async function loadRegistryData(registryNumberId, { isInitial = false } = {}) {
       manufactureYearSelect.appendChild(opt);
     }
 
-    console.log('[loadRegistryData] Установка года выпуска:', { isInitial, hasPrefillData: !!prefillData, prefillYear: prefillData?.manufacture_year });
     
     if (isInitial && prefillData && prefillData.manufacture_year) {
       if ([...manufactureYearSelect.options].some(o => o.value == String(prefillData.manufacture_year))) {
         manufactureYearSelect.value = String(prefillData.manufacture_year);
-        console.log('[loadRegistryData] Год выпуска установлен из prefill:', prefillData.manufacture_year);
       } else if (years.length > 0) {
         manufactureYearSelect.value = String(years[0]);
-        console.log('[loadRegistryData] Год выпуска из prefill не найден, установлен первый доступный:', years[0]);
       }
     } else if (!isInitial) {
       if (autoManufactureYear && years.length > 0) {
         const rnd = years[Math.floor(Math.random() * years.length)];
         manufactureYearSelect.value = String(rnd);
-        console.log('[loadRegistryData] Год выпуска установлен случайно (autoManufactureYear=true):', rnd);
       } else if (years.length > 0) {
         manufactureYearSelect.value = String(years[0]);
-        console.log('[loadRegistryData] Год выпуска установлен первый из списка:', years[0]);
       }
-    } else {
-      console.log('[loadRegistryData] Год выпуска НЕ установлен (isInitial=true, но нет prefillData)');
     }
     applyMPI();
 
@@ -346,7 +331,7 @@ async function queryActNumber() {
       if (lastActQueryKey !== queryKey) return;
       
       if (data && data.found !== false) {
-        // Заполнение полей формы
+        // Заполнение полей формы из найденного акта
         const setIf = (id, val) => {
           const el = document.getElementById(id);
           if (el && val != null) el.value = val;
@@ -378,16 +363,55 @@ async function queryActNumber() {
         // Рендеринг фотографий
         renderActPhotos(data.photos || []);
       } else {
+        // Акт не найден (null) - заполняем из order (prefillData)
+        fillFromOrderForActNumber();
         renderActPhotos([]);
       }
     } else if (resp.status === 404) {
+      // Акт не найден - заполняем из order (prefillData)
+      fillFromOrderForActNumber();
       renderActPhotos([]);
     } else {
+      // Ошибка - заполняем из order (prefillData)
+      fillFromOrderForActNumber();
       renderActPhotos([]);
     }
   } catch (e) {
     console.error('Ошибка запроса /act-numbers/by-number:', e);
+    fillFromOrderForActNumber();
     renderActPhotos([]);
+  }
+}
+
+function fillFromOrderForActNumber() {
+  if (!prefillData) return;
+
+  const setIf = (id, val) => {
+    const el = document.getElementById(id);
+    if (el && val != null) el.value = val;
+  };
+
+  setIf('client_full_name', prefillData.client_full_name);
+  setIf('address', prefillData.address);
+
+  if (prefillData.client_phone && phoneMask) {
+    phoneMask.value = prefillData.client_phone;
+    phoneMask.updateValue();
+  }
+
+  if (prefillData.verification_date) {
+    setIf('verification_date', prefillData.verification_date);
+  }
+
+  if (prefillData.legal_entity != null) {
+    setIf('legal_entity', prefillData.legal_entity);
+  }
+
+  if (prefillData.city_id != null) {
+    const citySelect = document.getElementById('city_id');
+    if (citySelect && [...citySelect.options].some(o => o.value == prefillData.city_id)) {
+      citySelect.value = String(prefillData.city_id);
+    }
   }
 }
 
@@ -478,9 +502,10 @@ document.addEventListener('DOMContentLoaded', function () {
     const allowShort = raw.length <= 2;
     const allowFull = phoneMask.masked.isComplete;
     if (!(allowShort || allowFull)) {
-      alert('Введите телефон полностью (+7 (xxx) xxx-xx-xx) или оставьте до 2 цифр.');
+      alert('Введите телефон полностью (+7 (xxx) xxx-xx-xx) или оставьте +7');
       return;
     }
+    if (allowShort) phoneInput.value = '';
 
     const today = getTodayInCompanyTz();
     if (verificationDateInput.value && verificationDateInput.value > today) {
@@ -499,28 +524,35 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (actNum === null || actNum < 1) {
       alert('Введите корректный номер бланка (> 0).');
-      setBusyState(false);
       return;
     }
     if (actNum > INT_MAX) {
       alert(`Номер бланка превышает допустимый максимум (${INT_MAX}).`);
-      setBusyState(false);
       return;
     }
 
-    const fd = new FormData(form);
-    fd.set('act_number', String(actNum));
-
-    fd.delete('verification_images');
+    const tmp = new FormData(form);
+    tmp.set('act_number', String(actNum));
 
     const obj = {};
-    fd.forEach((v, k) => {
+    tmp.forEach((v, k) => {
       if (v === 'True') obj[k] = true;
       else if (v === 'False') obj[k] = false;
       else obj[k] = v;
     });
 
     obj.company_tz = window.companyTz || 'Europe/Moscow';
+    obj.deleted_images_id = window.deletedImages;
+
+    const fd = new FormData();
+    fd.append('verification_entry_data', JSON.stringify(obj));
+
+    const photosInput = document.getElementById('verification_images');
+    if (photosInput && photosInput.files) {
+      for (const file of photosInput.files) {
+        fd.append('new_images', file);
+      }
+    }
 
     const params = new URLSearchParams({
       company_id: companyId,
@@ -537,16 +569,24 @@ document.addEventListener('DOMContentLoaded', function () {
         body: fd
       });
 
+      let data = null;
+      try {
+        data = await resp.json();
+      } catch (_) { }
+
       if (!resp.ok) {
-        const errText = await resp.text();
-        console.error('Ошибка создания:', resp.status, errText);
-        alert(`Ошибка при создании записи (${resp.status}). Проверьте данные.`);
+        const msg = (data && (data.detail || data.message || data.error || data.errors)) || `Ошибка ${resp.status}`;
+        console.error('Ошибка создания:', resp.status, msg);
+        alert(typeof msg === 'string' ? msg : JSON.stringify(msg));
         setBusyState(false, submitter);
         return;
       }
 
-      const data = await resp.json();
-      console.log('Ответ сервера:', data);
+      if (!data || data.status !== 'ok') {
+        alert('Неожиданный ответ сервера.');
+        setBusyState(false, submitter);
+        return;
+      }
 
       // Обработка редиректа
       const ve = data.verification_entry_id;

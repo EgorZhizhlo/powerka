@@ -52,7 +52,7 @@ class OrderModel(BaseModel):
         nullable=True
     )
 
-    counter_number = Column(Integer, nullable=False)
+    counter_number = Column(Integer, default=0, nullable=False)
 
     water_type = Column(
         Enum(OrderWaterType, name="order_water_type_enum"),

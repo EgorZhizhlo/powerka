@@ -1,6 +1,7 @@
-import { fetchAppeal } from './api_requests.js';
-import { openEditModal } from './appeals_edit.js';
-import { openDeleteModal } from './appeals_delete.js';
+import { fetchAppeal } from '/static/calendar/appeals/js/api_requests.js';
+import { openEditModal } from '/static/calendar/appeals/js/appeals_edit.js';
+import { openDeleteModal } from '/static/calendar/appeals/js/appeals_delete.js';
+import { openTransferModal } from '/static/calendar/appeals/js/appeals_transfer.js';
 
 export async function openDetailModal(id) {
     const modalEl = document.getElementById('modal-detail');
@@ -11,9 +12,9 @@ export async function openDetailModal(id) {
         // Всегда показываем ID, dispatcher и дату
         document.getElementById('detail-id').textContent = app.id;
         document.getElementById('detail-dispatcher').textContent = [
-            app.dispatcher.last_name,
-            app.dispatcher.name,
-            app.dispatcher.patronymic || ''
+            app.dispatcher ? 
+            app.dispatcher.last_name + ' ' + app.dispatcher.name + ' ' + app.dispatcher.patronymic
+            : ''
         ].filter(Boolean).join(' ');
         document.getElementById('detail-date').textContent = app.date_of_get
             ? new Date(app.date_of_get).toLocaleString('ru-RU', {
@@ -44,6 +45,7 @@ export async function openDetailModal(id) {
         const statusEl = document.getElementById('detail-status');
         if (statusEl) statusEl.textContent = window.mapOfStatus[app.status] || app.status;
 
+        document.getElementById('btn-transfer').onclick = () => { modal.hide(); openTransferModal(id, app); };
         document.getElementById('btn-edit').onclick = () => { modal.hide(); openEditModal(id); };
         document.getElementById('btn-delete').onclick = () => { modal.hide(); openDeleteModal(id); };
 

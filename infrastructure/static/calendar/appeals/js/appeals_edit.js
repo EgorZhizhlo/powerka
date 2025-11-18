@@ -1,4 +1,4 @@
-import { fetchAppeal, updateAppeal } from './api_requests.js';
+import { fetchAppeal, updateAppeal } from '/static/calendar/appeals/js/api_requests.js';
 import { preparePhoneMasks } from '/static/calendar/_utils/utils.js';
 
 export async function openEditModal(id) {
@@ -31,12 +31,16 @@ export async function openEditModal(id) {
             })();
 
             const payload = {
-                client_full_name: clientVal,
-                address: document.getElementById('edit-address').value.trim(),
-                phone_number: document.getElementById('edit-phone').value.trim(),
-                additional_info: document.getElementById('edit-info').value.trim(),
-                status: parseInt(document.getElementById('edit-status').value, 10)
+                address: document.getElementById('edit-address').value.trim() || null,
+                phone_number: document.getElementById('edit-phone').value.trim() || null,
+                additional_info: document.getElementById('edit-info').value.trim() || null,
+                status: document.getElementById('edit-status').value || null
             };
+
+            // Добавляем client_full_name только если не null
+            if (clientVal !== null) {
+                payload.client_full_name = clientVal || null;
+            }
 
             try {
                 await updateAppeal(id, payload);

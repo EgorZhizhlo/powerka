@@ -1,4 +1,4 @@
-import { createAppeal } from './api_requests.js';
+import { createAppeal } from '/static/calendar/appeals/js/api_requests.js';
 import { preparePhoneMasks } from '/static/calendar/_utils/utils.js';
 
 export function initCreateModal() {
@@ -15,18 +15,18 @@ export function initCreateModal() {
   form.addEventListener('submit', async e => {
     e.preventDefault();
 
-    // Проверяем, есть ли поле клиента
     const clientEl = document.getElementById('create-client');
 
     const payload = {
-      client_full_name: clientEl
-        ? clientEl.value.trim()
-        : null,
-      address:          document.getElementById('create-address').value.trim(),
-      phone_number:     document.getElementById('create-phone').value.trim(),
-      additional_info:  document.getElementById('create-info').value.trim(),
-      status:           parseInt(document.getElementById('create-status').value, 10)
+      address:          document.getElementById('create-address').value.trim() || null,
+      phone_number:     document.getElementById('create-phone').value.trim() || null,
+      additional_info:  document.getElementById('create-info').value.trim() || null,
+      status:           document.getElementById('create-status').value || null
     };
+
+    if (clientEl) {
+      payload.client_full_name = clientEl.value.trim() || null;
+    }
 
     try {
       await createAppeal(payload);

@@ -1,6 +1,7 @@
 import aiohttp
 import asyncio
 import random
+import math
 from models.enums import VerificationWaterType
 
 
@@ -33,7 +34,10 @@ async def get_pressure_from_lat_long(latitude: float, longitude: float):
 
     for attempt in range(3):
         try:
-            async with session.get("https://api.open-meteo.com/v1/forecast", params=params) as resp:
+            async with session.get(
+                "https://api.open-meteo.com/v1/forecast",
+                params=params
+            ) as resp:
 
                 if resp.status in (429, 500, 502, 503):
                     await asyncio.sleep(0.2 * (attempt + 1))
@@ -46,7 +50,7 @@ async def get_pressure_from_lat_long(latitude: float, longitude: float):
                 if current:
                     surface_pressure = current.get("surface_pressure")
                     if surface_pressure is not None:
-                        return surface_pressure * 0.1   # твоя логика перевода
+                        return surface_pressure * 0.1
 
                 return False
 
@@ -66,7 +70,10 @@ def generate_measurements(reference, tolerance, is_correct):
         error = random.uniform(tolerance / 100 + 0.01, tolerance / 100 + 0.05)
         meter = reference * \
             (1 + (error if random.choice([True, False]) else -error))
-    return round(meter, 5), round((meter - reference) / reference * 100, 2)
+    return (
+        round(meter, 4),
+        round((meter - reference) / reference * 100, 2)
+    )
 
 
 def get_random_choise(a, b, step):
@@ -90,7 +97,7 @@ def calculate_meter_verification(metrolog_data, is_correct, reason_type):
             ref_key = f"first_reference_water_according_{label}"
             meter_key = f"first_meter_water_according_{label}"
 
-            ref = getattr(metrolog_data, ref_key) or round(q, 5)
+            ref = getattr(metrolog_data, ref_key) or round(q, 4)
             meter = getattr(metrolog_data, meter_key)
 
             if meter is not None and ref is not None:
@@ -103,18 +110,18 @@ def calculate_meter_verification(metrolog_data, is_correct, reason_type):
                 ref_key = f"{prefix}_reference_water_according_{label}"
                 deviation_key = f"{prefix}_water_count_{label}"
 
-                ref = getattr(metrolog_data, ref_key) or round(
-                    q + get_random_choise(-0.00001, 0.00001, 0.000002), 5)
-                meter = getattr(metrolog_data, meter_key)
+                ref = getattr(metrolog_data, ref_key)
+                if ref is None:
+                    ref = round(q + get_random_choise(-0.0002, 0.0002, 0.0001), 4)
 
-                if meter is not None and ref is not None:
-                    deviation = round((meter - ref) / ref * 100, 2)
-                else:
-                    meter, deviation = generate_measurements(
-                        ref, tol, is_correct)
+                meter = getattr(metrolog_data, meter_key)
+                if meter is None:
+                    meter, _ = generate_measurements(ref, tol, is_correct)
 
                 setattr(metrolog_data, meter_key, meter)
                 setattr(metrolog_data, ref_key, ref)
+
+                deviation = round((meter - ref) / ref * 100, 2)
                 setattr(metrolog_data, deviation_key, deviation)
 
     return metrolog_data
@@ -138,20 +145,28 @@ async def right_automatisation_metrolog(
             else:
                 random_water_temperature = get_random_choise(40, 65, 1)
             before_water_temperature = random_water_temperature
-            after_water_temperature = before_water_temperature + get_random_choise(-2, 2, 0.2)
+            after_water_temperature = (
+                before_water_temperature + get_random_choise(-2, 2, 0.2)
+            )
         else:
             after_water_temperature = metrolog_data.after_water_temperature
-            before_water_temperature = after_water_temperature + get_random_choise(-2, 2, 0.2)
+            before_water_temperature = (
+                after_water_temperature + get_random_choise(-2, 2, 0.2)
+            )
     else:
         if metrolog_data.after_water_temperature is None:
             before_water_temperature = metrolog_data.befor_water_temperature
-            after_water_temperature = before_water_temperature + get_random_choise(-2, 2, 0.2)
+            after_water_temperature = (
+                before_water_temperature + get_random_choise(-2, 2, 0.2)
+            )
         else:
             after_water_temperature = metrolog_data.after_water_temperature
             before_water_temperature = metrolog_data.befor_water_temperature
 
-    metrolog_data.before_water_temperature = round(before_water_temperature, 3)
-    metrolog_data.after_water_temperature = round(after_water_temperature, 3)
+    metrolog_data.before_water_temperature = round(
+        before_water_temperature, 3)
+    metrolog_data.after_water_temperature = round(
+        after_water_temperature, 3)
 
     # Температура воздуха
     if metrolog_data.before_air_temperature is None:
@@ -170,7 +185,8 @@ async def right_automatisation_metrolog(
             after_air_temperature = metrolog_data.after_air_temperature
             before_air_temperature = metrolog_data.before_air_temperature
 
-    metrolog_data.before_air_temperature = round(before_air_temperature, 3)
+    metrolog_data.before_air_temperature = round(
+        before_air_temperature, 3)
     metrolog_data.after_air_temperature = round(after_air_temperature, 3)
 
     # Влажность

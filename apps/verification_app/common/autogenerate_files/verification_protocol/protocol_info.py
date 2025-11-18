@@ -2,6 +2,14 @@ from models.enums import EquipmentType, ReasonType
 from .utils import raise_exception
 
 
+def f4(v: float) -> str:
+    return f"{v:.4f}"
+
+
+def f2(v: float) -> str:
+    return f"{v:.2f}"
+
+
 def get_protocol_info(
         verification_entry,
         any_reports: bool = False,
@@ -60,19 +68,21 @@ def get_protocol_info(
             fields["use_opt"] = m_log.use_opt
 
         for idx in meter_indices:
-            categories = [
-                "meter_water_according",
-                "reference_water_according",
-                "water_count"
-            ]
-            for category in categories:
-                for flow in ["qmin", "qp", "qmax"]:
-                    key = f"{idx}_{category}_{flow}"
-                    value = getattr(m_log, key, "")
-                    if isinstance(value, float):
-                        fields[key] = round(value, 5)
-                    else:
-                        fields[key] = value
+            for flow in ["qmin", "qp", "qmax"]:
+                # meter
+                key = f"{idx}_meter_water_according_{flow}"
+                val = getattr(m_log, key, "")
+                fields[key] = f4(val) if isinstance(val, float) else val
+
+                # reference
+                key = f"{idx}_reference_water_according_{flow}"
+                val = getattr(m_log, key, "")
+                fields[key] = f4(val) if isinstance(val, float) else val
+
+                # deviation (water_count)
+                key = f"{idx}_water_count_{flow}"
+                val = getattr(m_log, key, "")
+                fields[key] = f2(val) if isinstance(val, float) else val
 
         fields["qh"] = m_log.qh
     else:

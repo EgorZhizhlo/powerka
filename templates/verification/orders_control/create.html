@@ -36,7 +36,7 @@
           {% if status in ["admin", "director"] %}
           <select id="series_id" name="series_id" class="form-select" required>
             {% for s in series %}
-            <option value="{{ s.id }}" {% if employee_series and s.id==employee_series.id %} selected {% endif %}>
+            <option value="{{ s.id }}" {% if default_series_id and s.id == default_series_id %} selected {% endif %}>
               {{ s.name }}
             </option>
             {% endfor %}
@@ -335,8 +335,7 @@
         </div>
         {% endif %}
 
-        {# Загрузка фотографий #}
-        <div class="col-md-6 mb-3 flex-grow-1 d-flex flex-column">
+        <div class="col-md-12 mb-3 flex-grow-1 d-flex flex-column">
           <label for="verification_images" class="form-label text-truncate">
             Загрузить изображения (до {{ image_limit_per_verification }} файлов)
           </label>
@@ -358,6 +357,7 @@
             </div>
           </div>
         </div>
+
         <div class="form-actions my-3 d-flex justify-content-end gap-3">
           <button id="submit-order" type="submit"
             class="btn btn-save w-100 fw-bold">

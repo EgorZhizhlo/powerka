@@ -327,21 +327,23 @@ function renderVerificationTable(items = []) {
         <td class="text-center align-middle col-120">${client}</td>
         <td class="text-center align-middle col-180">${siType}</td>
         <td class="text-center align-middle col-120">${registryNum}</td>
-        <td class="text-center align-middle col-120">${modName}</td>
+        <td class="text-center align-middle col-100">${modName}</td>
         <td class="text-center align-middle col-120">
           <span style="cursor: pointer;" data-bs-toggle="tooltip" title="Нажмите, чтобы скопировать" data-copy>
             ${factoryNum}
           </span>
         </td>
-        <td class="text-center align-middle col-120">${locationName}</td>
-        <td class="text-center align-middle col-120">${meterInfo}</td>
-        <td class="text-center align-middle col-120">${endVerifDate}</td>
-        <td class="text-center align-middle col-120">${seriesName}</td>
-        <td class="text-center align-middle col-120">${actNum}</td>
-        <td class="text-center align-middle col-120 text-white ${resultClass}">${resultText}</td>
-        <td class="text-center align-middle col-120 text-white ${waterClass}">${waterText}</td>
-        <td class="text-center align-middle col-120 ${sealClass}">${sealText}</td>
-        <td class="text-center align-middle col-120">${manufYear}</td>
+        <td class="text-center align-middle col-100">${locationName}</td>
+        <td class="text-center align-middle col-100">${meterInfo}</td>
+        <td class="text-center align-middle col-100">${endVerifDate}</td>
+        <td class="text-center align-middle col-100">${seriesName}</td>
+        <td class="text-center align-middle col-100">${actNum}</td>
+        <td class="text-center align-middle col-100 text-white ${resultClass}">${resultText}</td>
+        <td class="text-center align-middle col-100 text-white ${waterClass}">${waterText}</td>
+        <td class="text-center align-middle col-100 ${sealClass}">${sealText}</td>
+        <td class="text-center align-middle col-100">${manufYear}</td>
+        <td class="text-center align-middle col-100">${e.created_at_formatted || ''}</td>
+        <td class="text-center align-middle col-100">${e.updated_at_formatted || ''}</td>
         <td class="text-center align-middle col-100">
           ${hasMetrolog ? `
               <a class="text-center align-middle" href="${metrologUpdateHref}">
@@ -372,8 +374,6 @@ function renderVerificationTable(items = []) {
             `
       }
         </td>
-        <td class="text-center align-middle col-120">${e.created_at_formatted || ''}</td>
-        <td class="text-center align-middle col-120">${e.updated_at_formatted || ''}</td>
       </tr>
     `;
   });

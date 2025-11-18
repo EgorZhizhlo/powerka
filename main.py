@@ -16,7 +16,8 @@ from apps import (
     calendar_router,
     company_router,
     verification_router,
-    tariff_router
+    tariff_router,
+    webhook_router,
 )
 
 from infrastructure.cache import init_redis, close_redis
@@ -43,11 +44,12 @@ app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 app.add_middleware(TariffMiddleware)
 app.add_middleware(AuthMiddleware)
 
-app.include_router(auth_router)
-app.include_router(calendar_router)
-app.include_router(company_router)
-app.include_router(verification_router)
-app.include_router(tariff_router)
+app.include_router(auth_router, tags=["Авторизация"])
+app.include_router(calendar_router, tags=["Календарь"])
+app.include_router(company_router, tags=["Меню компаний"])
+app.include_router(verification_router, tags=["Поверка"])
+app.include_router(tariff_router, tags=["Тарифы компаний"])
+app.include_router(webhook_router, tags=["Вебхуки"])
 
 templates = Jinja2Templates(directory="templates")
 

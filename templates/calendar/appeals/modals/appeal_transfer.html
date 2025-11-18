@@ -1,0 +1,82 @@
+{# templates/modals/appeal-transfer.html #}
+<div class="modal fade" id="modal-transfer" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content rounded-3 shadow">
+      <div class="modal-header bg-white">
+        <h5 class="modal-title">📤 Передача обращения в заявку</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+      </div>
+      <form id="formTransferAppeal" autocomplete="off" method="post">
+        <div class="modal-body">
+          <div class="row gy-3">
+            <div class="col-md-6 form-group">
+              <label for="transferDate" class="form-label">Дата</label>
+              <input id="transferDate" name="date" type="date" class="form-control">
+            </div>
+            <div class="col-md-6 form-group d-flex align-items-center">
+              <div class="form-check mt-3">
+                <input id="transferNoDate" name="no_date" type="checkbox" class="form-check-input">
+                <label for="transferNoDate" class="form-check-label">Без даты</label>
+              </div>
+            </div>
+            <div class="col-md-6 form-group">
+              <label for="transferRoute" class="form-label">Маршрут</label>
+              <select id="transferRoute" name="route_id" class="form-select"></select>
+            </div>
+            <div class="col-md-6 form-group">
+              <label for="transferCity" class="form-label">Город</label>
+              <select id="transferCity" name="city_id" class="form-select"></select>
+            </div>
+            <div class="col-12 form-group">
+              <label for="transferAddress" class="form-label">Адрес</label>
+              <input id="transferAddress" name="address" type="text" class="form-control" required>
+            </div>
+            <div class="col-md-6 form-group">
+              <label for="transferPhone" class="form-label">Телефон</label>
+              <input id="transferPhone" name="phone_number" type="tel" class="form-control" data-phone-input required>
+            </div>
+            <div class="col-md-6 form-group">
+              <label for="transferSecPhone" class="form-label">Доп. телефон</label>
+              <input id="transferSecPhone" name="sec_phone_number" type="tel" class="form-control" data-phone-input>
+            </div>
+            <div class="col-md-6 form-group" id="transferClientWrapper">
+              <label for="transferClient" class="form-label">Заказчик</label>
+              <input id="transferClient" name="client_full_name" type="text" class="form-control">
+            </div>
+            <div class="col-md-6 form-group d-flex align-items-center" id="transferLegalWrapper">
+              <div class="form-check">
+                <input id="transferLegal" name="legal_entity" type="checkbox" class="form-check-input">
+                <label for="transferLegal" class="form-check-label">Юр. лицо</label>
+              </div>
+            </div>
+            <div class="col-md-6 form-group">
+              <label for="transferCounter" class="form-label">Количество счётчиков</label>
+              <input id="transferCounter" name="counter_number" type="number" class="form-control" required min="0" max="10" step="1" oninput="this.value = Math.max(Math.min(this.value, 10), 0)">
+            </div>
+            <div class="col-md-6 form-group" id="transferWaterWrapper">
+              <label for="transferWater" class="form-label">Тип воды</label>
+              <select id="transferWater" name="water_type" class="form-select">
+                <option value="cold">Холодная</option>
+                <option value="hot">Горячая</option>
+                <option value="cold_hot">Холодная и Горячая</option>
+                <option value="unnamed">Неизвестно</option>
+              </select>
+            </div>
+            <div class="col-md-6 form-group" id="transferPriceWrapper">
+              <label for="transferPrice" class="form-label">Цена</label>
+              <input id="transferPrice" name="price" type="number" step="0.01" class="form-control">
+            </div>
+            <div class="col-12 form-group">
+              <label for="transferInfo" class="form-label">Доп. информация</label>
+              <textarea id="transferInfo" name="additional_info" class="form-control" rows="3"></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-outline-success fw-bold" style="border-width: 3px;">✅ Создать заявку</button>
+          <button type="button" class="btn btn-outline-secondary fw-bold" style="border-width: 3px;" data-bs-dismiss="modal">✖️ Отмена</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
