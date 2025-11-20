@@ -3,8 +3,8 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import date as date_
 
-from models.associations import employees_cities, employees_routes
 from models import OrderModel
+from models.associations import employees_cities, employees_routes
 
 from access_control import dispatcher2
 

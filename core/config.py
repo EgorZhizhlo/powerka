@@ -54,6 +54,8 @@ class Settings(BaseSettings):
 
     entries_per_page: Final[int] = 20
 
+    document_max_size_mb: Final[int] = 10 * 1024 * 1024  # 10 MB
+
     # === Лимит фото в поверке ===
     image_limit_per_verification: Final[int] = 15
     image_max_size_mb: Final[int] = 5 * 1024 * 1024  # 5 MB

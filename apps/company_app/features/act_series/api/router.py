@@ -6,8 +6,9 @@ from fastapi import (
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
-from core.exceptions import check_is_none
 from core.templates.jinja_filters import format_datetime_tz
+from core.db.dependencies import get_company_timezone
+from core.exceptions.api.common import NotFoundError
 
 from infrastructure.db import async_db_session, async_db_session_begin
 
@@ -16,8 +17,6 @@ from access_control import (
     check_include_in_not_active_company,
     check_include_in_active_company,
 )
-
-from core.db.dependencies import get_company_timezone
 
 from apps.company_app.schemas.act_series import (
     ActSeriesPage, ActSeriesForm, ActSeriesOut
@@ -40,10 +39,10 @@ async def api_get_act_series(
     company_tz: str = Depends(get_company_timezone),
     session: AsyncSession = Depends(async_db_session),
 ):
-    repo = ActSeriesRepository(session)
+    act_series_repo = ActSeriesRepository(session)
     per_page = settings.entries_per_page
 
-    objs, page, total_pages = await repo.get_paginated(
+    objs, page, total_pages = await act_series_repo.get_paginated(
         company_id=company_id,
         page=page,
         per_page=per_page,
@@ -76,8 +75,8 @@ async def api_create_act_series(
     actseries_data: ActSeriesForm = Body(...),
     session: AsyncSession = Depends(async_db_session_begin),
 ):
-    repo = ActSeriesRepository(session)
-    await repo.create(company_id, actseries_data.name)
+    act_series_repo = ActSeriesRepository(session)
+    await act_series_repo.create(company_id, actseries_data.name)
 
     return Response(status_code=status_code.HTTP_204_NO_CONTENT)
 
@@ -90,15 +89,15 @@ async def api_update_act_series(
     actseries_data: ActSeriesForm = Body(...),
     session: AsyncSession = Depends(async_db_session_begin),
 ):
-    repo = ActSeriesRepository(session)
-    act_series = await repo.get_by_id(act_series_id, company_id)
+    act_series_repo = ActSeriesRepository(session)
+    act_series = await act_series_repo.get_by_id(act_series_id, company_id)
 
-    await check_is_none(
-        act_series, type="Серия акта",
-        id=act_series_id, company_id=company_id
-    )
+    if not act_series:
+        raise NotFoundError(
+            detail="Серия бланка не найдена!"
+        )
 
-    await repo.update(act_series, actseries_data.name)
+    await act_series_repo.update(act_series, actseries_data.name)
 
     return Response(status_code=status_code.HTTP_204_NO_CONTENT)
 
@@ -110,14 +109,17 @@ async def api_delete_act_series(
     user_data: JwtData = Depends(check_include_in_active_company),
     session: AsyncSession = Depends(async_db_session_begin),
 ):
-    repo = ActSeriesRepository(session)
-    series = await repo.get_full_for_delete(act_series_id, company_id)
-    await check_is_none(
-        series, type="Серия бланка",
-        id=act_series_id, company_id=company_id
+    act_series_repo = ActSeriesRepository(session)
+    act_series = await act_series_repo.get_full_for_delete(
+        act_series_id, company_id
     )
 
-    await repo.delete_or_soft_delete(series)
+    if not act_series:
+        raise NotFoundError(
+            detail="Серия бланка не найдена!"
+        )
+
+    await act_series_repo.delete_or_soft_delete(act_series)
 
     return Response(status_code=status_code.HTTP_204_NO_CONTENT)
 
@@ -129,11 +131,12 @@ async def api_restore_act_series(
     user_data: JwtData = Depends(check_include_in_active_company),
     session: AsyncSession = Depends(async_db_session_begin),
 ):
-    repo = ActSeriesRepository(session)
-    series = await repo.restore(act_series_id, company_id)
-    await check_is_none(
-        series, type="Серия бланка",
-        id=act_series_id, company_id=company_id
-    )
+    act_series_repo = ActSeriesRepository(session)
+    act_series = await act_series_repo.restore(act_series_id, company_id)
+
+    if not act_series:
+        raise NotFoundError(
+            detail="Серия бланка не найдена!"
+        )
 
     return Response(status_code=status_code.HTTP_204_NO_CONTENT)

@@ -4,9 +4,8 @@ from fastapi import Depends, Cookie, Query
 from models.enums import EmployeeStatus
 
 from core.config import settings
-from core.exceptions import (
-    RedirectException, ForbiddenException
-)
+from core.exceptions.base import RedirectHttpException
+from core.exceptions.app.common import ForbiddenError
 
 from access_control.tokens import (
     JwtData,
@@ -42,7 +41,7 @@ async def check_calendar_access(
     if user_data_status not in access_calendar:
         active_ids = set(comp_data.get("active_company_ids", []))
         if not active_ids:
-            raise ForbiddenException
+            raise ForbiddenError(company_id=company_id)
 
         first_cid = min(active_ids)
         if user_data_status in redirect_to_verification:
@@ -50,7 +49,7 @@ async def check_calendar_access(
         else:
             url = login_url
 
-        raise RedirectException(redirect_to_url=url)
+        raise RedirectHttpException(redirect_to_url=url)
 
     employee_data = build_jwt_data(user_data, comp_data)
 
@@ -70,34 +69,38 @@ async def check_active_access_calendar(
 
 
 async def dispatcher2_exception(
+    company_id: int = Query(..., ge=1, le=settings.max_int),
     employee_data: JwtData = Depends(check_calendar_access),
 ):
     if employee_data.status == dispatcher2:
-        raise ForbiddenException
+        raise ForbiddenError(company_id=company_id)
     return employee_data
 
 
 async def dispatchers_exception(
+    company_id: int = Query(..., ge=1, le=settings.max_int),
     employee_data: JwtData = Depends(check_calendar_access),
 ):
     if employee_data.status in dispatchers:
-        raise ForbiddenException
+        raise ForbiddenError(company_id=company_id)
     return employee_data
 
 
 async def active_dispatcher2_exception(
+    company_id: int = Query(..., ge=1, le=settings.max_int),
     employee_data: JwtData = Depends(
         check_active_access_calendar),
 ):
     if employee_data.status == dispatcher2:
-        raise ForbiddenException
+        raise ForbiddenError(company_id=company_id)
     return employee_data
 
 
 async def active_dispatchers_exception(
+    company_id: int = Query(..., ge=1, le=settings.max_int),
     employee_data: JwtData = Depends(
         check_active_access_calendar),
 ):
     if employee_data.status in dispatchers:
-        raise ForbiddenException
+        raise ForbiddenError(company_id=company_id)
     return employee_data

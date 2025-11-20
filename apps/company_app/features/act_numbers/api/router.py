@@ -15,8 +15,10 @@ from infrastructure.db import async_db_session, async_db_session_begin
 
 from core.config import settings
 from core.db.dependencies import get_company_timezone
-from core.exceptions import check_is_none, CustomHTTPException
 from core.templates.jinja_filters import format_datetime_tz
+from core.exceptions.api.common import (
+    NotFoundError, ConflictError
+)
 
 from apps.company_app.schemas.act_numbers import (
     ActNumberForm, ActNumbersPage, ActNumberOut
@@ -80,20 +82,18 @@ async def api_create_act_number(
     act_number_data: ActNumberForm = Body(...),
     session: AsyncSession = Depends(async_db_session_begin),
 ):
-    repo = ActNumberRepository(session)
+    act_number_repo = ActNumberRepository(session)
 
-    if await repo.exists_duplicate(
+    if await act_number_repo.exists_duplicate(
         act_number=act_number_data.act_number,
         series_id=act_number_data.series_id,
         company_id=company_id,
     ):
-        raise CustomHTTPException(
-            company_id=company_id,
-            status_code=status_code.HTTP_400_BAD_REQUEST,
+        raise ConflictError(
             detail=f"Номер акта {act_number_data.act_number} уже существует!"
         )
 
-    await repo.create(company_id, **act_number_data.model_dump())
+    await act_number_repo.create(company_id, **act_number_data.model_dump())
 
     return Response(status_code=status_code.HTTP_204_NO_CONTENT)
 
@@ -106,28 +106,27 @@ async def api_update_act_number(
     act_number_data: ActNumberForm = Body(...),
     session: AsyncSession = Depends(async_db_session_begin),
 ):
-    repo = ActNumberRepository(session)
+    act_number_repo = ActNumberRepository(session)
 
-    if await repo.exists_duplicate(
+    if await act_number_repo.exists_duplicate(
         act_number=act_number_data.act_number,
         series_id=act_number_data.series_id,
         company_id=company_id,
         exclude_id=act_number_id,
     ):
-        raise CustomHTTPException(
-            company_id=company_id,
-            status_code=status_code.HTTP_400_BAD_REQUEST,
+        raise ConflictError(
             detail=f"Номер акта {act_number_data.act_number} уже существует!"
         )
 
-    act_number_entry = await repo.get_by_id(
-        act_number_id, company_id)
-    await check_is_none(
-        act_number_entry, type="Номер акта",
-        id=act_number_id, company_id=company_id
+    act_number_entry = await act_number_repo.get_by_id(
+        act_number_id, company_id
     )
+    if not act_number_entry:
+        raise NotFoundError(
+            detail="Номер акта не найден!"
+        )
 
-    await repo.update(
+    await act_number_repo.update(
         act_number_entry, **act_number_data.model_dump()
     )
 
@@ -141,15 +140,17 @@ async def api_delete_act_number(
     user_data: JwtData = Depends(check_include_in_active_company),
     session: AsyncSession = Depends(async_db_session_begin),
 ):
-    repo = ActNumberRepository(session)
+    act_number_repo = ActNumberRepository(session)
 
-    act_number = await repo.get_by_id(act_number_id, company_id)
-    await check_is_none(
-        act_number, type="Номер бланка",
-        id=act_number_id, company_id=company_id
+    act_number_entry = await act_number_repo.get_by_id(
+        act_number_id, company_id
     )
+    if not act_number_entry:
+        raise NotFoundError(
+            detail="Номер акта не найден!"
+        )
 
-    await repo.delete_or_soft_delete(act_number)
+    await act_number_repo.delete_or_soft_delete(act_number_entry)
 
     return Response(status_code=status_code.HTTP_204_NO_CONTENT)
 
@@ -161,32 +162,25 @@ async def api_restore_act_number(
     user_data: JwtData = Depends(check_include_in_active_company),
     session: AsyncSession = Depends(async_db_session_begin),
 ):
-    repo = ActNumberRepository(session)
+    act_number_repo = ActNumberRepository(session)
 
-    act_number = await repo.restore(act_number_id, company_id)
-    await check_is_none(
-        act_number, type="Номер бланка",
-        id=act_number_id, company_id=company_id
+    act_number_entry = await act_number_repo.get_by_id(
+        act_number_id, company_id
     )
-
-    if act_number.series and act_number.series.is_deleted:
-        raise CustomHTTPException(
-            status_code=status_code.HTTP_400_BAD_REQUEST,
-            company_id=company_id,
-            detail="Номер акта невозможно восстановить, "
-                   "так как его серия помечена как удалённая. "
-                   "Сначала восстановите серию.",
+    if not act_number_entry:
+        raise NotFoundError(
+            detail="Номер акта не найден!"
         )
 
-    if act_number.city and act_number.city.is_deleted:
-        raise CustomHTTPException(
-            status_code=status_code.HTTP_400_BAD_REQUEST,
-            company_id=company_id,
-            detail="Номер акта невозможно восстановить, "
-                   "так как связанный населённый пункт помечен как удалённый. "
-                   "Сначала восстановите населённый пункт.",
+    if act_number_entry.series and act_number_entry.series.is_deleted:
+        raise ConflictError(
+            detail=(
+                "Номер акта невозможно восстановить, "
+                "так как его серия помечена как удалённая. "
+                "Сначала восстановите серию."
+            )
         )
 
-    act_number.is_deleted = False
+    act_number_entry.is_deleted = False
 
     return Response(status_code=status_code.HTTP_204_NO_CONTENT)

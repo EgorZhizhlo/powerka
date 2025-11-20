@@ -164,10 +164,10 @@ class EquipmentRepository(BaseRepository[EquipmentModel]):
             date_filters = []
             if verif_date_from:
                 date_filters.append(
-                    EquipmentInfoModel.verif_date >= verif_date_from)
+                    EquipmentInfoModel.date_from >= verif_date_from)
             if verif_date_to:
                 date_filters.append(
-                    EquipmentInfoModel.verif_date <= verif_date_to)
+                    EquipmentInfoModel.date_from <= verif_date_to)
             stmt = stmt.where(
                 exists().where(
                     EquipmentInfoModel.equipment_id == EquipmentModel.id,

@@ -294,10 +294,10 @@ def upgrade() -> None:
                                   name='equipment_info_type_enum'),
                     nullable=False,
                     postgresql_using='type::equipment_info_type_enum')
-    op.alter_column('equipment_info', 'verif_date',
+    op.alter_column('equipment_info', 'date_from',
                     existing_type=sa.DATE(),
                     nullable=False)
-    op.alter_column('equipment_info', 'verif_limit_date',
+    op.alter_column('equipment_info', 'date_to',
                     existing_type=sa.DATE(),
                     nullable=False)
     op.alter_column('equipments', 'type',
@@ -902,10 +902,10 @@ def downgrade() -> None:
                         'standard', 'measurement', 'auxiliary', 'other', name='equipment_type_enum'),
                     type_=sa.VARCHAR(length=120),
                     existing_nullable=False)
-    op.alter_column('equipment_info', 'verif_limit_date',
+    op.alter_column('equipment_info', 'date_to',
                     existing_type=sa.DATE(),
                     nullable=True)
-    op.alter_column('equipment_info', 'verif_date',
+    op.alter_column('equipment_info', 'date_from',
                     existing_type=sa.DATE(),
                     nullable=True)
     op.alter_column('equipment_info', 'type',

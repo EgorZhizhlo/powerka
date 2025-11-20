@@ -15,8 +15,11 @@ from access_control import (
 
 from core.config import settings
 from core.db.dependencies import get_company_timezone
-from core.exceptions import CustomHTTPException, check_is_none
+from core.exceptions import CustomHTTPException
 from core.templates.jinja_filters import format_datetime_tz
+from core.exceptions.api.common import (
+    NotFoundError, BadRequestError, ForbiddenError
+)
 
 from infrastructure.db import async_db_session, async_db_session_begin
 
@@ -136,10 +139,10 @@ async def api_update_location(
         )
     ).scalar_one_or_none()
 
-    await check_is_none(
-        location, type="Расположения счетчика",
-        id=location_id, company_id=company_id
-    )
+    if not location:
+        raise NotFoundError(
+            detail="Расположение счетчика не найдено!"
+        )
 
     for field, value in location_data.model_dump().items():
         setattr(location, field, value)
@@ -156,7 +159,7 @@ async def api_delete_location(
     user_data: JwtData = Depends(check_include_in_active_company),
     session: AsyncSession = Depends(async_db_session_begin),
 ):
-    loc: LocationModel | None = (
+    location = (
         await session.execute(
             select(LocationModel)
             .where(
@@ -168,19 +171,17 @@ async def api_delete_location(
         )
     ).scalar_one_or_none()
 
-    if loc is None:
-        raise CustomHTTPException(
-            status_code=status_code.HTTP_404_NOT_FOUND,
-            detail="Расположение не найдено",
-            company_id=company_id
+    if not location:
+        raise NotFoundError(
+            detail="Расположение счетчика не найдено!"
         )
 
-    can_hard_delete = not loc.verifications
+    can_hard_delete = not location.verifications
 
     if can_hard_delete:
-        await session.delete(loc)
+        await session.delete(location)
     else:
-        loc.is_deleted = True
+        location.is_deleted = True
 
     return Response(status_code=status_code.HTTP_204_NO_CONTENT)
 
@@ -192,7 +193,7 @@ async def api_restore_location(
     user_data: JwtData = Depends(check_include_in_active_company),
     session: AsyncSession = Depends(async_db_session_begin),
 ):
-    loc = (
+    location = (
         await session.execute(
             select(LocationModel).where(
                 LocationModel.id == location_id,
@@ -202,13 +203,11 @@ async def api_restore_location(
         )
     ).scalar_one_or_none()
 
-    if loc is None:
-        raise CustomHTTPException(
-            status_code=status_code.HTTP_404_NOT_FOUND,
-            detail="Удалённое расположение не найдено",
-            company_id=company_id
+    if not location:
+        raise NotFoundError(
+            detail="Расположение счетчика не найдено!"
         )
 
-    loc.is_deleted = False
+    location.is_deleted = False
 
     return Response(status_code=status_code.HTTP_204_NO_CONTENT)

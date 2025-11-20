@@ -4,7 +4,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from models import CompanyModel
 
-from core.exceptions import CustomHTTPException
+from core.exceptions.app.common import NotFoundError
+
+from apps.company_app.repositories import CompanyRepository
 
 
 async def make_context(
@@ -12,6 +14,9 @@ async def make_context(
     user_data: dict,
     company_id: int,
 ):
+    repo = CompanyRepository(session=session, company_id=company_id)
+
+    row = await repo.get_company_for_context()
     # Выполняем запрос
     result = await session.execute(
         select(
@@ -26,10 +31,10 @@ async def make_context(
 
     # Если такой компании нет — бросаем 404
     if row is None:
-        raise CustomHTTPException(
-            status_code=404,
+        raise NotFoundError(
             company_id=company_id,
-            detail=f"Компания {company_id} не найдена")
+            detail="Компания не найдена!"
+        )
 
     # Преобразуем RowMapping в словарь
     company: dict = dict(row)

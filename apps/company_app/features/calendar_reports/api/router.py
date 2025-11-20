@@ -11,8 +11,8 @@ from access_control import (
 )
 from core.db.dependencies import get_company_timezone
 from core.config import settings
-from core.exceptions import check_is_none
 from core.templates.jinja_filters import format_datetime_tz
+from core.exceptions.api.common import NotFoundError
 
 from infrastructure.db import async_db_session, async_db_session_begin
 
@@ -41,8 +41,8 @@ async def api_get_calendar_reports(
     company_tz: str = Depends(get_company_timezone),
     session: AsyncSession = Depends(async_db_session),
 ):
-    repo = CalendarReportRepository(session)
-    objs, page, total_pages = await repo.get_paginated(
+    calendar_report_repo = CalendarReportRepository(session)
+    objs, page, total_pages = await calendar_report_repo.get_paginated(
         company_id, page, settings.entries_per_page, search
     )
 
@@ -72,10 +72,15 @@ async def api_get_calendar_report(
     company_tz: str = Depends(get_company_timezone),
     session: AsyncSession = Depends(async_db_session),
 ):
-    repo = CalendarReportRepository(session)
-    report = await repo.get_by_id(calendar_report_id, company_id)
-    await check_is_none(
-        report, "Календарный отчёт", calendar_report_id, company_id)
+    calendar_report_repo = CalendarReportRepository(session)
+    report = await calendar_report_repo.get_by_id(
+        calendar_report_id, company_id
+    )
+
+    if not report:
+        raise NotFoundError(
+            detail="Календарный отчёт не найден!"
+        )
 
     item_dict = CalendarReportDetail.model_validate(report).model_dump()
     item_dict["created_at_strftime_full"] = format_datetime_tz(
@@ -95,7 +100,7 @@ async def api_create_calendar_report(
     calendar_report_data: CalendarReportForm = Body(...),
     session: AsyncSession = Depends(async_db_session_begin),
 ):
-    repo = CalendarReportRepository(session)
+    calendar_report_repo = CalendarReportRepository(session)
 
     fields_state = calendar_report_data.fields_state
     fields_order_str = ",".join(calendar_report_data.fields_order)
@@ -124,7 +129,7 @@ async def api_create_calendar_report(
         "deleted_at": fields_state.get("deleted_at", False),
     }
 
-    await repo.create(company_id, **db_data)
+    await calendar_report_repo.create(company_id, **db_data)
 
     return Response(status_code=status_code.HTTP_204_NO_CONTENT)
 
@@ -137,11 +142,15 @@ async def api_update_calendar_report(
     calendar_report_data: CalendarReportForm = Body(...),
     session: AsyncSession = Depends(async_db_session_begin),
 ):
-    repo = CalendarReportRepository(session)
-    report = await repo.get_by_id(calendar_report_id, company_id)
+    calendar_report_repo = CalendarReportRepository(session)
+    report = await calendar_report_repo.get_by_id(
+        calendar_report_id, company_id
+    )
 
-    await check_is_none(
-        report, "Календарный отчёт", calendar_report_id, company_id)
+    if not report:
+        raise NotFoundError(
+            detail="Календарный отчёт не найден!"
+        )
 
     fields_state = calendar_report_data.fields_state
     fields_order_str = ",".join(calendar_report_data.fields_order)
@@ -170,7 +179,7 @@ async def api_update_calendar_report(
         "deleted_at": fields_state.get("deleted_at", False),
     }
 
-    await repo.update(report, **db_data)
+    await calendar_report_repo.update(report, **db_data)
 
     return Response(status_code=status_code.HTTP_204_NO_CONTENT)
 
@@ -182,12 +191,15 @@ async def api_delete_calendar_report(
     user_data: JwtData = Depends(check_include_in_active_company),
     session: AsyncSession = Depends(async_db_session_begin),
 ):
-    repo = CalendarReportRepository(session)
-    report = await repo.get_by_id(calendar_report_id, company_id)
-    await check_is_none(
-        report, type="Календарный отчёт",
-        id=calendar_report_id, company_id=company_id
+    calendar_report_repo = CalendarReportRepository(session)
+    report = await calendar_report_repo.get_by_id(
+        calendar_report_id, company_id
     )
 
-    await repo.delete(report)
+    if not report:
+        raise NotFoundError(
+            detail="Календарный отчёт не найден!"
+        )
+
+    await calendar_report_repo.delete(report)
     return Response(status_code=status_code.HTTP_204_NO_CONTENT)

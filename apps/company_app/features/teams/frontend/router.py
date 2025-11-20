@@ -5,8 +5,8 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
-from core.exceptions import check_is_none
 from core.templates.template_manager import templates
+from core.exceptions.frontend.common import NotFoundError
 
 from infrastructure.db import async_db_session
 from models import VerifierModel, TeamModel
@@ -54,8 +54,12 @@ async def view_create_team(
         await session.execute(
             select(VerifierModel)
             .where(
-                VerifierModel.company_id == company_id)
-            .order_by(VerifierModel.id)
+                VerifierModel.company_id == company_id
+            ).order_by(
+                VerifierModel.last_name,
+                VerifierModel.name,
+                VerifierModel.patronymic
+            )
         )
     ).scalars().all()
 
@@ -88,14 +92,21 @@ async def view_update_team(
         .options(selectinload(TeamModel.verifiers))
     )).scalar_one_or_none()
 
-    await check_is_none(
-        team, type="Команда", id=team_id, company_id=company_id)
+    if not team:
+        raise NotFoundError(
+            company_id=company_id,
+            detail="Команда не найдена!"
+        )
 
     verifiers = (
         await session.execute(
             select(VerifierModel)
             .where(VerifierModel.company_id == company_id)
-            .order_by(VerifierModel.id)
+            .order_by(
+                VerifierModel.last_name,
+                VerifierModel.name,
+                VerifierModel.patronymic
+            )
         )
     ).scalars().all()
 

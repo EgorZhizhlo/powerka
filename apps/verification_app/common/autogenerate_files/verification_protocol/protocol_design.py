@@ -48,7 +48,7 @@ def generate_protocol(result: dict):
     VERIF_NUMBER = result.get('verification_number', '')
     F_VERIF_NUMBER = result.get('full_verification_number', '')
     VERIF_RES = result.get("verification_result", '')
-    VERIF_DATE = result.get('verification_date', '')
+    DATE_FROM = result.get('date_from', '')
     VERIFIER_F_N = result.get('verifier_full_name', '')
 
     SI_TYPE = result.get('si_type', '')
@@ -356,8 +356,8 @@ def generate_protocol(result: dict):
         f"""Свидетельство о поверке №{
             F_VERIF_NUMBER
             if F_VERIF_NUMBER
-            else '                          '} от {VERIF_DATE}<br/>
-        Дата поверки: {VERIF_DATE}<br/>
+            else '                          '} от {DATE_FROM}<br/>
+        Дата поверки: {DATE_FROM}<br/>
         Поверитель: _______________________________ {VERIFIER_F_N}<br/>
     """,
         additional_style

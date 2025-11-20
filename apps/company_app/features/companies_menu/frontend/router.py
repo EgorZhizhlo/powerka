@@ -12,13 +12,16 @@ from sqlalchemy import select, or_, and_
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.exceptions import CustomHTTPException, check_is_none
-from infrastructure.cache import redis
 from core.config import settings
 from core.timezones import ALL_TIMEZONES
 from core.templates.template_manager import templates
+from core.exceptions.frontend.common import (
+    NotFoundError, ForbiddenError
+)
 
 from infrastructure.db import async_db_session
+from infrastructure.cache import redis
+
 from models import (
     EmployeeModel, CompanyModel,
     CompanyCalendarParameterModel
@@ -118,9 +121,8 @@ async def view_create_company(
     session: AsyncSession = Depends(async_db_session),
 ):
     if user_data.status != EmployeeStatus.admin:
-        raise CustomHTTPException(
-            status_code=403,
-            detail="Доступ только для администратора"
+        raise ForbiddenError(
+            detail="Доступ только для администратора!"
         )
 
     all_employees = (await session.execute(
@@ -186,8 +188,11 @@ async def view_update_company(
         .where(CompanyCalendarParameterModel.company_id == company_id)
     )).scalar_one_or_none()
 
-    await check_is_none(
-        company, type="Компания", id=company_id, company_id=company_id)
+    if not company_calendar_params:
+        raise NotFoundError(
+            company_id=company_id,
+            detail="Дополнительные параметры для календаря не найдены!"
+        )
 
     all_employees = []
     selected_employee_ids = []

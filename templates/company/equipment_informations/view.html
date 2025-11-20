@@ -62,8 +62,8 @@
                       <a class="btn btn-outline-danger" style="border-width: 3px;" href=""
                          onclick="return confirm('Удалить запись ТО id {{ rec.id }}?');">🗑️</a>
                     </td>
-                    <td>{{ rec.verif_date.strftime('%d.%m.%Y') }}</td>
-                    <td>{{ rec.verif_limit_date.strftime('%d.%m.%Y') }}</td>
+                    <td>{{ rec.date_from.strftime('%d.%m.%Y') }}</td>
+                    <td>{{ rec.date_to.strftime('%d.%m.%Y') }}</td>
                     <td>{{ rec.info }}</td>
                   </tr>
                 {% endfor %}
@@ -100,8 +100,8 @@
                       <a class="btn btn-outline-danger" style="border-width: 3px;" href=""
                          onclick="return confirm('Удалить запись поверки id {{ rec.id }}?');">🗑️</a>
                     </td>
-                    <td>{{ rec.verif_date.strftime('%d.%m.%Y') }}</td>
-                    <td>{{ rec.verif_limit_date.strftime('%d.%m.%Y') }}</td>
+                    <td>{{ rec.date_from.strftime('%d.%m.%Y') }}</td>
+                    <td>{{ rec.date_to.strftime('%d.%m.%Y') }}</td>
                     <td>{{ rec.info }}</td>
                   </tr>
                 {% endfor %}

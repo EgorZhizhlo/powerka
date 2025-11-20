@@ -1,16 +1,20 @@
-from fastapi import APIRouter, HTTPException, Query, Depends
+from fastapi import APIRouter, Query, Depends
 import pandas as pd
 from io import BytesIO
 from urllib.parse import quote
 from fastapi.responses import StreamingResponse
 
+from core.config import settings
+from core.reports.excel_utils import autofit_columns
+from core.db.dependencies import get_company_timezone
+from core.utils.cpu_bounds_runner import run_cpu_bounds_task
 from core.templates.jinja_filters import (
     get_current_date_in_tz, format_datetime_tz
 )
-from core.db.dependencies import get_company_timezone
-from core.config import settings
-from core.reports.excel_utils import autofit_columns
-from core.utils.cpu_bounds_runner import run_cpu_bounds_task
+from core.exceptions.api.common import (
+    ForbiddenError, NotFoundError,
+    BadRequestError
+)
 
 from models.enums import (
     map_order_status_to_label,
@@ -29,7 +33,6 @@ from apps.calendar_app.repositories import (
     CalendarReportRepository,
     read_calendar_report_repository
 )
-
 from apps.calendar_app.schemas.dynamic_reports import DynamicReportFilters
 
 
@@ -231,9 +234,8 @@ async def xlsx_dynamic_calendar_report(
 
     calendar_report = await report_repo.get_report_config(report_id)
     if not calendar_report:
-        raise HTTPException(
-            status_code=404,
-            detail="Выбранный отчет не найден."
+        raise NotFoundError(
+            detail="Отчет не найден!"
         )
 
     if status in auditor_dispatchers:
@@ -248,10 +250,11 @@ async def xlsx_dynamic_calendar_report(
             has_access = True
 
         if not has_access:
-            raise HTTPException(
-                status_code=403,
-                detail="В доступе к отчету отказано. "
-                       "Вы не обладаете необходимым доступом."
+            raise ForbiddenError(
+                detail=(
+                    "В доступе к отчету отказано. "
+                    "Вы не обладаете необходимым доступом."
+                )
             )
 
     order_entries = await report_repo.get_dynamic_report_entries(
@@ -262,17 +265,16 @@ async def xlsx_dynamic_calendar_report(
     )
 
     if not order_entries:
-        raise HTTPException(
-            status_code=400,
-            detail="Нет данных для генерации отчета. "
-                   "Проверьте параметры фильтрации."
+        raise BadRequestError(
+            detail=(
+                "Нет данных для генерации отчета. "
+                "Проверьте параметры фильтрации."
+            )
         )
 
     if not calendar_report.fields_order:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Отчет не содержит полей. "
-            f"fields_order={calendar_report.fields_order}"
+        raise BadRequestError(
+            detail="Отчет не содержит полей!"
         )
 
     field_list = [
@@ -281,10 +283,8 @@ async def xlsx_dynamic_calendar_report(
     ]
 
     if not field_list:
-        raise HTTPException(
-            status_code=400,
-            detail=f"После парсинга список пуст. "
-                   f"Исходное: {calendar_report.fields_order}"
+        raise BadRequestError(
+            detail="Отчет не содержит полей!"
         )
 
     serialized_entries = await serialize_calendar_entries(order_entries)

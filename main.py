@@ -5,7 +5,14 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
-from core.exceptions import CustomHTTPException
+from typing import Any
+
+from core.exceptions.base import (
+    ApiHttpException,
+    FrontendHttpException,
+    AppHttpException,
+    RedirectHttpException
+)
 from access_control.middlewares import (
     AuthMiddleware,
     TariffMiddleware
@@ -54,19 +61,14 @@ app.include_router(webhook_router, tags=["Вебхуки"])
 templates = Jinja2Templates(directory="templates")
 
 
-@app.exception_handler(CustomHTTPException)
-async def custom_http_exception_handler(
-    request: Request, exc: CustomHTTPException
-):
+@app.exception_handler(AppHttpException)
+async def app_http_exception_handler(
+    request: Request, exc: AppHttpException
+) -> Any:
     if "/api/" in request.url.path:
         content = {"detail": exc.detail or "Ошибка доступа"}
         return JSONResponse(status_code=exc.status_code, content=content)
 
-    # Если есть редирект
-    if redirect_url := getattr(exc, "redirect_url", None):
-        return RedirectResponse(status_code=303, url=redirect_url)
-
-    # Иначе HTML-ответ
     return templates.TemplateResponse(
         "error.html",
         {
@@ -76,4 +78,40 @@ async def custom_http_exception_handler(
             "company_id": getattr(exc, "company_id", None),
         },
         status_code=exc.status_code,
+    )
+
+
+@app.exception_handler(ApiHttpException)
+async def api_http_exception_handler(
+    request: Request, exc: ApiHttpException
+) -> JSONResponse:
+    content = {"detail": exc.detail or "Ошибка доступа"}
+    return JSONResponse(
+        status_code=exc.status_code, content=content
+    )
+
+
+@app.exception_handler(FrontendHttpException)
+async def frontend_http_exception_handler(
+    request: Request, exc: FrontendHttpException
+) -> Any:
+    return templates.TemplateResponse(
+        "error.html",
+        {
+            "request": request,
+            "status_code": exc.status_code,
+            "error": exc.detail or "Неизвестная ошибка",
+            "company_id": getattr(exc, "company_id", None),
+        },
+        status_code=exc.status_code,
+    )
+
+
+@app.exception_handler(RedirectHttpException)
+async def redirect_http_exception_handler(
+    request: Request, exc: RedirectHttpException
+) -> RedirectResponse:
+    redirect_url = getattr(exc, "redirect_url", "/")
+    return RedirectResponse(
+        status_code=303, url=redirect_url
     )

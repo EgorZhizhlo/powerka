@@ -4,8 +4,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
-from core.exceptions import check_is_none
 from core.templates.template_manager import templates
+from core.exceptions.frontend.common import NotFoundError
 
 from infrastructure.db import async_db_session
 from models import LocationModel
@@ -71,7 +71,6 @@ async def view_edit_location(
     user_data: JwtData = Depends(check_include_in_active_company),
     session: AsyncSession = Depends(async_db_session),
 ):
-
     location = (
         await session.execute(
             select(LocationModel)
@@ -82,9 +81,11 @@ async def view_edit_location(
         )
     ).scalar_one_or_none()
 
-    await check_is_none(
-        location, type="Расположения счетчика",
-        id=location_id, company_id=company_id)
+    if not location:
+        raise NotFoundError(
+            company_id=company_id,
+            detail="Расположение счетчика не найдено!"
+        )
 
     context = {
         "request": request,

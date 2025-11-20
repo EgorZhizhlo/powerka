@@ -42,7 +42,12 @@ from apps.verification_app.schemas.orders_control import (
 from apps.verification_app.schemas.verifications_control import (
     CreateVerificationEntryForm, MetrologInfoForm
 )
-from apps.verification_app.services import process_act_number_photos
+from apps.verification_app.services import (
+    process_act_number_photos,
+
+    check_verification_limit_available,
+    increment_verification_count
+)
 from apps.verification_app.repositories import (
     EmployeeCitiesRepository, read_employee_cities_repository,
     CompanyRepository, read_company_repository,
@@ -57,8 +62,6 @@ from apps.verification_app.common import (
     check_equip_conditions, act_number_for_create, check_act_number_limit,
     get_verifier_id_create, right_automatisation_metrolog,
     clear_verification_cache,
-    check_verification_limit_available,
-    increment_verification_count
 )
 from apps.verification_app.exceptions import (
     VerificationEntryException,

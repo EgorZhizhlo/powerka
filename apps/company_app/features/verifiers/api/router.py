@@ -10,8 +10,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
 from core.db.dependencies import get_company_timezone
-from core.exceptions import CustomHTTPException, check_is_none
 from core.templates.jinja_filters import format_datetime_tz
+from core.exceptions.api.common import (
+    NotFoundError, ForbiddenError, ConflictError
+)
 
 from infrastructure.db import async_db_session, async_db_session_begin
 from models.enums import (
@@ -134,10 +136,11 @@ async def api_create_verifier(
         etalon_count = sum(
             1 for eq in selected if eq.type.lower() == EquipmentType.standard)
         if etalon_count > 1:
-            raise CustomHTTPException(
-                company_id=company_id, status_code=400,
-                detail="Поверитель может использовать не более 1 средства"
-                " измерений, используемое в качестве эталона."
+            raise ConflictError(
+                detail=(
+                    "Поверитель может использовать не более 1 средства"
+                    " измерений, используемое в качестве эталона!"
+                )
             )
 
         await session.execute(
@@ -180,8 +183,12 @@ async def api_update_verifier(
             VerifierModel.id == verifier_id
         )
     )).scalar_one_or_none()
-    await check_is_none(
-        verifier, type="Поверитель", id=verifier_id, company_id=company_id)
+
+    if not verifier:
+        raise NotFoundError(
+            company_id=company_id,
+            detail="Поверитель не найден!"
+        )
 
     updated = verifier_data.model_dump(exclude_unset=True)
 
@@ -202,9 +209,11 @@ async def api_update_verifier(
         etalon_count = sum(
             1 for eq in selected if eq.type.lower() == EquipmentType.standard)
         if etalon_count > 1:
-            raise CustomHTTPException(
-                company_id=company_id, status_code=400,
-                detail="Поверитель может использовать не более 1 средства измерений, используемое в качестве эталона"
+            raise ConflictError(
+                detail=(
+                    "Поверитель может использовать не более 1 средства"
+                    " измерений, используемое в качестве эталона!"
+                )
             )
 
         # отвязываем эти приборы от всех остальных верификаторов
@@ -253,10 +262,8 @@ async def api_delete_verifier(
     session: AsyncSession = Depends(async_db_session_begin),
 ):
     if user_data.status == EmployeeStatus.auditor:
-        raise CustomHTTPException(
-            company_id=company_id,
-            status_code=404,
-            detail="У вас нет доступа к этому функционалу."
+        raise ForbiddenError(
+            detail="У вас нет доступа к этому функционалу!"
         )
 
     # загружаем поверителя с зависимыми связями
@@ -274,9 +281,12 @@ async def api_delete_verifier(
         )
     )
     verifier = (await session.execute(q)).scalar_one_or_none()
-    await check_is_none(
-        verifier, type="Поверитель", id=verifier_id, company_id=company_id
-    )
+
+    if not verifier:
+        raise NotFoundError(
+            company_id=company_id,
+            detail="Поверитель не найден!"
+        )
 
     if not verifier.verification:
         verifier.equipments.clear()
@@ -307,10 +317,8 @@ async def api_restore_verifier(
     session: AsyncSession = Depends(async_db_session_begin),
 ):
     if user_data.status == EmployeeStatus.auditor:
-        raise CustomHTTPException(
-            company_id=company_id,
-            status_code=404,
-            detail="У вас нет доступа к этому функционалу."
+        raise ForbiddenError(
+            detail="У вас нет доступа к этому функционалу!"
         )
 
     q = select(VerifierModel).where(
@@ -319,9 +327,12 @@ async def api_restore_verifier(
         VerifierModel.is_deleted.is_(True),
     )
     verifier = (await session.execute(q)).scalar_one_or_none()
-    await check_is_none(
-        verifier, type="Поверитель", id=verifier_id, company_id=company_id
-    )
+
+    if not verifier:
+        raise NotFoundError(
+            company_id=company_id,
+            detail="Поверитель не найден!"
+        )
 
     verifier.is_deleted = False
 

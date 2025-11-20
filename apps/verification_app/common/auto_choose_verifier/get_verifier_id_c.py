@@ -76,16 +76,16 @@ def check_verifier_equipment(
                 for e_info in equipment.equipment_info
                 if (
                     e_info.type == EquipmentInfoType.verification
-                    and e_info.verif_limit_date is not None
+                    and e_info.date_to is not None
                 )
             ]
             if not info:
                 return True
 
             latest_equipment_info = max(
-                info, key=lambda x: x.verif_limit_date
+                info, key=lambda x: x.date_to
             )
-            if latest_equipment_info.verif_limit_date < today:
+            if latest_equipment_info.date_to < today:
                 return False
 
     return True

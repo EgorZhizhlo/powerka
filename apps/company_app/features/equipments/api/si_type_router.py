@@ -6,8 +6,12 @@ from access_control import (
     JwtData, check_include_in_active_company
 )
 from core.config import settings
-from core.exceptions import CustomHTTPException, check_is_none
+from core.exceptions.api.common import (
+    NotFoundError, BadRequestError
+)
+
 from infrastructure.db import async_db_session_begin
+
 from apps.company_app.repositories import CompanySiTypeRepository
 from apps.company_app.schemas.equipments import (
     ItemCreate, ItemUpdate, ItemOut, OkResponse
@@ -43,9 +47,8 @@ async def create_si_type(
     repo = CompanySiTypeRepository(session)
 
     if await repo.exists_si_type_by_name_in_company(data.name, company_id):
-        raise CustomHTTPException(
-            status_code=400, detail="Ошибка: такой тип СИ уже существует",
-            company_id=company_id
+        raise BadRequestError(
+            detail="Такой тип СИ уже существует!",
         )
 
     return await repo.create_si_type(name=data.name, company_id=company_id)
@@ -65,15 +68,16 @@ async def update_si_type(
     repo = CompanySiTypeRepository(session)
 
     si_type = await repo.get_si_type_by_id_in_company(si_type_id, company_id)
-    await check_is_none(
-        si_type, "Тип СИ", id=si_type_id, company_id=company_id
-    )
+    if not si_type:
+        raise NotFoundError(
+            company_id=company_id,
+            detail="Тип СИ не найден!"
+        )
 
     if data.name.strip().lower() != si_type.name.strip().lower():
         if await repo.exists_si_type_by_name_in_company(data.name, company_id):
-            raise CustomHTTPException(
-                status_code=400, detail="Ошибка: такой тип СИ уже существует",
-                company_id=company_id
+            raise BadRequestError(
+                detail="Такой тип СИ уже существует!",
             )
 
     return await repo.update_si_type(si_type, new_name=data.name)
@@ -92,9 +96,11 @@ async def delete_si_type(
     repo = CompanySiTypeRepository(session)
 
     si_type = await repo.get_si_type_by_id_in_company(si_type_id, company_id)
-    await check_is_none(
-        si_type, "Тип СИ", id=si_type_id, company_id=company_id
-    )
+    if not si_type:
+        raise NotFoundError(
+            company_id=company_id,
+            detail="Тип СИ не найден!"
+        )
 
     await repo.delete_si_type(si_type)
     return OkResponse(ok=True)

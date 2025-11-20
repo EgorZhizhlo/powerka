@@ -11,10 +11,13 @@ from access_control import (
 )
 
 from core.config import settings
-from core.exceptions import CustomHTTPException, check_is_none
 from core.templates.template_manager import templates
+from core.exceptions.frontend.common import (
+    NotFoundError, ForbiddenError
+)
 
 from infrastructure.db import async_db_session
+
 from models import (
     ActSeriesModel, EmployeeModel, CompanyModel, CityModel, VerifierModel,
     RouteModel
@@ -129,9 +132,11 @@ async def update_employee(
         )
     ).scalar_one_or_none()
 
-    await check_is_none(
-        employee, type="Сотрудник",
-        id=employee_id, company_id=company_id)
+    if not employee:
+        raise NotFoundError(
+            company_id=company_id,
+            detail="Сотрудник не найден!"
+        )
 
     if status == EmployeeStatus.director:
         if user_id != employee.id:
@@ -153,10 +158,9 @@ async def update_employee(
         }
 
     if employee.status not in allowed_statuses:
-        raise CustomHTTPException(
+        raise ForbiddenError(
             company_id=company_id,
-            status_code=400,
-            detail="В доступе к сотруднику отказано."
+            detail="В доступе к сотруднику отказано!"
         )
 
     verifiers = (await session.execute(

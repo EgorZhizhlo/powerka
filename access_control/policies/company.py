@@ -6,9 +6,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 
 from core.config import settings
-from core.exceptions import (
-    RedirectException, ForbiddenException,
-)
+from core.exceptions.base import RedirectHttpException
+from core.exceptions.app.common import ForbiddenError
+
 from models import EmployeeModel
 from models.enums import EmployeeStatus
 
@@ -44,7 +44,7 @@ def _redirect_non_access_roles(
 
     active_ids = set(active_company_ids)
     if not active_ids:
-        raise ForbiddenException
+        raise ForbiddenError
 
     company_id = min(active_ids)
 
@@ -55,7 +55,7 @@ def _redirect_non_access_roles(
     else:
         url = login_url
 
-    raise RedirectException(redirect_to_url=url)
+    raise RedirectHttpException(redirect_to_url=url)
 
 
 async def check_companies_access(
@@ -74,7 +74,7 @@ async def check_companies_access(
 
     if user_data_status == EmployeeStatus.auditor:
         if request.method.upper() != "GET":
-            raise ForbiddenException
+            raise ForbiddenError
 
         user_data_id = user_data.get("id")
 
@@ -88,7 +88,7 @@ async def check_companies_access(
         trust_equipment, trust_verifier = stmt.one()
 
         if not (trust_equipment or trust_verifier):
-            raise ForbiddenException
+            raise ForbiddenError
 
     return build_jwt_data(user_data, comp_data)
 
@@ -138,7 +138,7 @@ async def check_company_access(
             allowed = bool(trust_verifier)
 
         if not allowed:
-            raise ForbiddenException
+            raise ForbiddenError(company_id=company_id)
 
     return build_jwt_data(user_data, comp_data)
 

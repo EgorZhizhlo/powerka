@@ -13,8 +13,10 @@ from access_control import (
 
 from core.config import settings
 from core.db.dependencies import get_company_timezone
-from core.exceptions import CustomHTTPException, check_is_none
 from core.templates.jinja_filters import format_datetime_tz
+from core.exceptions.api.common import (
+    NotFoundError, ConflictError
+)
 
 from infrastructure.db import async_db_session, async_db_session_begin
 
@@ -40,9 +42,9 @@ async def api_get_cities(
     company_tz: str = Depends(get_company_timezone),
     session: AsyncSession = Depends(async_db_session),
 ):
-    repo = CityRepository(session)
+    city_repo = CityRepository(session)
     per_page = settings.entries_per_page
-    objs, page, total_pages = await repo.get_paginated(
+    objs, page, total_pages = await city_repo.get_paginated(
         company_id=company_id,
         page=page,
         per_page=per_page,
@@ -71,14 +73,14 @@ async def api_create_city(
     user_data: JwtData = Depends(check_include_in_active_company),
     session: AsyncSession = Depends(async_db_session_begin),
 ):
-    repo = CityRepository(session)
+    city_repo = CityRepository(session)
 
-    if await repo.exists_duplicate(city_data.name, company_id):
-        raise CustomHTTPException(
-            company_id=company_id, status_code=404,
+    if await city_repo.exists_duplicate(city_data.name, company_id):
+        raise ConflictError(
             detail=f"Город {city_data.name} уже был создан ранее!"
         )
-    await repo.create(company_id, city_data.name)
+
+    await city_repo.create(company_id, city_data.name)
 
     return Response(status_code=status_code.HTTP_204_NO_CONTENT)
 
@@ -91,21 +93,23 @@ async def api_update_city(
     user_data: JwtData = Depends(check_include_in_active_company),
     session: AsyncSession = Depends(async_db_session_begin),
 ):
-    repo = CityRepository(session)
+    city_repo = CityRepository(session)
 
-    if await repo.exists_duplicate(
+    if await city_repo.exists_duplicate(
             name=city_data.name, company_id=company_id,
             exclude_id=city_id):
-        raise CustomHTTPException(
-            company_id=company_id, status_code=404,
+        raise ConflictError(
             detail=f"Город {city_data.name} уже был создан ранее!"
         )
 
-    city = await repo.get_by_id(city_id, company_id)
-    await check_is_none(
-        city, type="Населенный пункт", id=city_id, company_id=company_id)
+    city = await city_repo.get_by_id(city_id, company_id)
 
-    await repo.update(city, city_data.name)
+    if not city:
+        raise NotFoundError(
+            detail="Населённый пункт не найден!"
+        )
+
+    await city_repo.update(city, city_data.name)
 
     return Response(status_code=status_code.HTTP_204_NO_CONTENT)
 
@@ -117,13 +121,16 @@ async def api_delete_city(
     user_data: JwtData = Depends(check_include_in_active_company),
     session: AsyncSession = Depends(async_db_session_begin),
 ):
-    repo = CityRepository(session)
-    city = await repo.get_full_for_delete(city_id, company_id)
-    await check_is_none(
-        city, type="Населённый пункт", id=city_id, company_id=company_id
-    )
+    city_repo = CityRepository(session)
+    city = await city_repo.get_full_for_delete(city_id, company_id)
 
-    await repo.delete(city)
+    if not city:
+        raise NotFoundError(
+            detail="Населённый пункт не найден!"
+        )
+
+    await city_repo.delete(city)
+
     return Response(status_code=status_code.HTTP_204_NO_CONTENT)
 
 
@@ -135,11 +142,14 @@ async def api_restore_city(
         check_include_in_active_company),
     session: AsyncSession = Depends(async_db_session_begin),
 ):
-    repo = CityRepository(session)
-    city = await repo.get_full_for_restore(city_id, company_id)
-    await check_is_none(
-        city, type="Населённый пункт", id=city_id, company_id=company_id
-    )
+    city_repo = CityRepository(session)
+    city = await city_repo.get_full_for_restore(city_id, company_id)
 
-    await repo.restore(city)
+    if not city:
+        raise NotFoundError(
+            detail="Населённый пункт не найден!"
+        )
+
+    await city_repo.restore(city)
+
     return Response(status_code=status_code.HTTP_204_NO_CONTENT)

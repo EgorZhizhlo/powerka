@@ -14,9 +14,10 @@ class EquipmentInfoModel(BaseModel, TimeMixin):
 
     type = Column(
         Enum(EquipmentInfoType, name='equipment_info_type_enum'),
-        nullable=False)
-    verif_date = Column(Date, nullable=False)
-    verif_limit_date = Column(Date, nullable=False)
+        nullable=False
+    )
+    date_from = Column(Date, nullable=False)
+    date_to = Column(Date, nullable=False)
     info = Column(String(200))
     is_deleted = Column(Boolean, default=False)
 

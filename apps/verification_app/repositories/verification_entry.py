@@ -254,7 +254,7 @@ class VerificationEntryRepository:
                     EquipmentModel.factory_number,
                 ).joinedload(EquipmentModel.equipment_info).load_only(
                     EquipmentInfoModel.id,
-                    EquipmentInfoModel.verif_limit_date,
+                    EquipmentInfoModel.date_to,
                     EquipmentInfoModel.type
                 ),
                 joinedload(VerificationEntryModel.company).load_only(
@@ -472,7 +472,7 @@ class VerificationEntryRepository:
                 ).joinedload(EquipmentModel.equipment_info).load_only(
                     EquipmentInfoModel.id,
                     EquipmentInfoModel.type,
-                    EquipmentInfoModel.verif_limit_date,
+                    EquipmentInfoModel.date_to,
                 ),
             )
         )
@@ -559,7 +559,7 @@ class VerificationEntryRepository:
                 ).joinedload(EquipmentModel.equipment_info).load_only(
                     EquipmentInfoModel.id,
                     EquipmentInfoModel.type,
-                    EquipmentInfoModel.verif_limit_date,
+                    EquipmentInfoModel.date_to,
                 ),
             )
         )

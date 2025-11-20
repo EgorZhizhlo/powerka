@@ -1,7 +1,10 @@
 from fastapi import APIRouter, Request, Cookie
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-from access_control.tokens import verify_token, verify_untimed_token
+from access_control.tokens import (
+    verify_token, verify_untimed_token,
+    reset_jwt_token_version,
+)
 from access_control.roles import (
     access_company
 )
@@ -70,3 +73,23 @@ async def authorization_home(
         "login.html",
         {"request": request}
     )
+
+
+@auth_frontend_router.get("/logout")
+async def logout_user(
+    auth_token: str = Cookie(None),
+):
+    if auth_token:
+        try:
+            data = verify_token(auth_token)
+            user_id = data["id"]
+            await reset_jwt_token_version(f"user:{user_id}:auth_version")
+            await reset_jwt_token_version(f"user:{user_id}:company_version")
+        except Exception:
+            pass
+
+    response = RedirectResponse(url="/", status_code=303)
+    for name in ("auth_token", "company_info_token"):
+        response.delete_cookie(name, path="/")
+
+    return response

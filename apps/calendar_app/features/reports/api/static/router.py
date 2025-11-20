@@ -6,7 +6,7 @@ from math import inf
 from urllib.parse import quote
 from datetime import date as date_
 
-from fastapi import APIRouter, HTTPException, Query, Depends
+from fastapi import APIRouter, Query, Depends
 from fastapi.responses import StreamingResponse
 
 from sqlalchemy import asc, func, or_, tuple_, select, cast, Date as SADate
@@ -37,6 +37,7 @@ from models.associations import (
 from core.config import settings
 from core.utils.cpu_bounds_runner import run_cpu_bounds_task
 from core.reports.route_orders_report import create_report_route_orders_list
+from core.exceptions.api.common import BadRequestError
 
 
 reports_static_api_router = APIRouter(
@@ -127,9 +128,9 @@ async def api_dispatcher_statistic(
     session: AsyncSession = Depends(async_db_session),
 ):
     if end_date < start_date:
-        raise HTTPException(
-            status_code=422,
-            detail="Конечная дата выгрузки не должна быть меньше начальной.")
+        raise BadRequestError(
+            detail="Конечная дата выгрузки не должна быть меньше начальной!"
+        )
 
     # сотрудники компании
     base_emps = (
@@ -324,9 +325,9 @@ async def api_order_statistic(
     session: AsyncSession = Depends(async_db_session),
 ):
     if end_date < start_date:
-        raise HTTPException(
-            status_code=422,
-            detail="Конечная дата выгрузки не должна быть меньше начальной.")
+        raise BadRequestError(
+            detail="Конечная дата выгрузки не должна быть меньше начальной!"
+        )
 
     # маршруты, к которым есть доступ
     employee_route_ids = (
@@ -337,7 +338,9 @@ async def api_order_statistic(
     ).scalars().all()
 
     if route_id and employee_route_ids and route_id not in employee_route_ids:
-        raise HTTPException(404, "У вас нет доступа к этому маршруту")
+        raise BadRequestError(
+            detail="У вас нет доступа к этому маршруту!"
+        )
 
     # города сотрудника
     employee_city_ids = (
@@ -463,9 +466,9 @@ async def api_ordering_statistic_zipstream(
     session: AsyncSession = Depends(async_db_session),
 ):
     if end_date < start_date:
-        raise HTTPException(
-            status_code=422,
-            detail="Конечная дата выгрузки не должна быть меньше начальной.")
+        raise BadRequestError(
+            detail="Конечная дата выгрузки не должна быть меньше начальной!"
+        )
 
     q = (
         select(EmployeeModel)

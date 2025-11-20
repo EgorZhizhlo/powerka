@@ -1,12 +1,18 @@
 from typing import List
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from access_control import (
     JwtData, check_include_in_active_company
 )
+
 from infrastructure.db import async_db_session_begin
+
 from core.config import settings
+from core.exceptions.api.common import (
+    NotFoundError, BadRequestError
+)
+
 from apps.company_app.repositories import CompanyActivityRepository
 from apps.company_app.schemas.equipments import (
     ItemCreate, ItemUpdate, ItemOut, OkResponse
@@ -42,9 +48,8 @@ async def create_activity(
     repo = CompanyActivityRepository(session)
 
     if await repo.exists_activity_by_name_in_company(data.name, company_id):
-        raise HTTPException(
-            status_code=400,
-            detail="Ошибка: такой вид измерений уже существует."
+        raise BadRequestError(
+            detail="Такой вид измерений уже существует!"
         )
 
     return await repo.create_activity(name=data.name, company_id=company_id)
@@ -66,15 +71,16 @@ async def update_activity(
     activity = await repo.get_activity_by_id_in_company(
         activity_id, company_id)
     if not activity:
-        raise HTTPException(
-            status_code=404, detail="Элемент не найден")
+        raise NotFoundError(
+            company_id=company_id,
+            detail="Вид измерений не найден!"
+        )
 
     if data.name.strip().lower() != activity.name.strip().lower():
         if await repo.exists_activity_by_name_in_company(
                 data.name, company_id):
-            raise HTTPException(
-                status_code=400,
-                detail="Ошибка: такой вид измерений уже существует."
+            raise BadRequestError(
+                detail="Такой вид измерений уже существует!"
             )
 
     return await repo.update_activity(activity, new_name=data.name)
@@ -95,7 +101,10 @@ async def delete_activity_item(
         activity_id, company_id
     )
     if not activity:
-        raise HTTPException(status_code=404, detail="Элемент не найден")
+        raise NotFoundError(
+            company_id=company_id,
+            detail="Вид измерений не найден!"
+        )
 
     await repo.delete_activity(activity)
     return OkResponse(ok=True)

@@ -9,8 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
 from core.db.dependencies import get_company_timezone
-from core.exceptions import check_is_none
 from core.templates.jinja_filters import format_datetime_tz
+from core.exceptions.api.common import NotFoundError
 
 from access_control import (
     JwtData,
@@ -139,8 +139,12 @@ async def api_update_registry_number(
                 selectinload(RegistryNumberModel.modifications))
         )
     ).scalar_one_or_none()
-    await check_is_none(
-        registry_number, type="Гос.реестр", id=registry_number_id, company_id=company_id)
+
+    if not registry_number:
+        raise NotFoundError(
+            company_id=company_id,
+            detail="Гос.реестр не найден!"
+        )
 
     for field, value in registry_number_data.model_dump().items():
         if field not in {"modifications"}:

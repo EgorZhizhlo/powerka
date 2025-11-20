@@ -3,7 +3,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from infrastructure.db import async_db_session, async_db_session_begin
 
-from core.config import settings
 from apps.calendar_app.repositories import (
     CompanyRepository, CompanyCalendarRepository
 )

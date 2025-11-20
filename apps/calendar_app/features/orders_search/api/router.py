@@ -1,10 +1,7 @@
 import re
 from typing import Optional
 
-from fastapi import (
-    APIRouter, HTTPException, status as status_code,
-    Query, Depends
-)
+from fastapi import APIRouter, Query, Depends
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import contains_eager
@@ -17,6 +14,7 @@ from access_control import (
 )
 
 from core.config import settings
+from core.exceptions.api.common import BadRequestError
 
 from infrastructure.db import async_db_session
 
@@ -45,9 +43,8 @@ async def api_search_list(
 ):
     sq = search_query.strip()
     if not sq:
-        raise HTTPException(
-            status_code=status_code.HTTP_400_BAD_REQUEST,
-            detail="Строка поиска не должна быть пустой"
+        raise BadRequestError(
+            detail="Строка поиска не должна быть пустой!"
         )
 
     text_term = f"%{sq.lower()}%"

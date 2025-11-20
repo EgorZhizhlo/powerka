@@ -20,6 +20,9 @@ from apps.company_app.repositories.equipment import (
     EquipmentRepository
 )
 
+from apps.company_app.repositories.company import (
+    CompanyRepository
+)
 
 __all__ = [
     "ActNumberRepository",
@@ -28,5 +31,6 @@ __all__ = [
     "CityRepository",
     "CompanyActivityRepository",
     "CompanySiTypeRepository",
+    "CompanyRepository",
     "EquipmentRepository",
 ]

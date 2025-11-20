@@ -9,8 +9,8 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.exceptions import CustomHTTPException
 from core.config import settings
+from core.exceptions.api.common import BadRequestError
 
 from infrastructure.db import async_db_session_begin
 from models import (
@@ -36,9 +36,9 @@ async def api_upload_file(
     allowed_extensions = {"csv", "xlsx", "xls"}
     ext = file.filename.rsplit(".", 1)[-1].lower()
     if ext not in allowed_extensions:
-        raise CustomHTTPException(
-            company_id=company_id, status_code=400,
-            detail="Только .csv, .xlsx и .xls файлы разрешены.")
+        raise BadRequestError(
+            detail="Только .csv, .xlsx и .xls файлы разрешены!"
+        )
 
     # Открываем файл
     try:
@@ -48,9 +48,7 @@ async def api_upload_file(
             xls = pd.ExcelFile(file.file)
             df = xls.parse(xls.sheet_names[0])
     except Exception as e:
-        raise CustomHTTPException(
-            company_id=company_id,
-            status_code=400,
+        raise BadRequestError(
             detail=f"Ошибка чтения файла: {e}"
         )
 

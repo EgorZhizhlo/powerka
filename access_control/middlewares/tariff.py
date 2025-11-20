@@ -5,11 +5,14 @@ from starlette.responses import RedirectResponse, JSONResponse
 
 from sqlalchemy import select, update
 
-from infrastructure.db.session import async_session_maker
 from models import CompanyTariffState, CompanyModel
 from models.enums import EmployeeStatus
+
 from access_control import bump_jwt_token_version
+
 from core.utils.time_utils import date_utc_now
+
+from infrastructure.db.session import async_session_maker
 
 
 class TariffMiddleware(BaseHTTPMiddleware):

@@ -1,8 +1,11 @@
 from itsdangerous import (
-    URLSafeSerializer, URLSafeTimedSerializer, BadSignature, SignatureExpired)
+    URLSafeSerializer, URLSafeTimedSerializer,
+    BadSignature, SignatureExpired
+)
+
 from core.config import settings
-from core.exceptions import (
-    InvalidTokenException, TokenExpiredException
+from core.exceptions.app.auth.token import (
+    InvalidTokenError, TokenExpiredError
 )
 from access_control.tokens.jwt_versioning import bump_jwt_token_version
 
@@ -28,8 +31,8 @@ async def create_token(data: dict) -> str:
 def verify_token(token: str) -> dict:
     """
     Проверяет JWT-токен с учётом max_age.
-    При истечении выбрасывает TokenExpiredException,
-    при неверной подписи — InvalidTokenException.
+    При истечении выбрасывает TokenExpiredError,
+    при неверной подписи — InvalidTokenError.
     """
     serializer = URLSafeTimedSerializer(secret_key)
     try:
@@ -39,9 +42,9 @@ def verify_token(token: str) -> dict:
             max_age=jwt_token_expiration
         )
     except SignatureExpired:
-        raise TokenExpiredException
+        raise TokenExpiredError
     except BadSignature:
-        raise InvalidTokenException
+        raise InvalidTokenError
 
 
 async def create_untimed_token(data: dict) -> str:
@@ -60,10 +63,10 @@ async def create_untimed_token(data: dict) -> str:
 def verify_untimed_token(token: str) -> dict:
     """
     Проверяет токен без таймаута.
-    При неверной подписи — InvalidTokenException.
+    При неверной подписи — InvalidTokenError.
     """
     serializer = URLSafeSerializer(secret_key, salt=salt)
     try:
         return serializer.loads(token)
     except BadSignature:
-        raise InvalidTokenException
+        raise InvalidTokenError

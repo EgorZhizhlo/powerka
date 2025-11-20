@@ -39,21 +39,21 @@
       {% endif %}">
 
       <div class="mb-3">
-        <label for="verif_date" class="form-label label-text"><b>Дата поверки</b></label>
+        <label for="date_from" class="form-label label-text"><b>Дата поверки</b></label>
         <input type="date"
-               id="verif_date"
-               name="verif_date"
+               id="date_from"
+               name="date_from"
                class="form-control input-text text-center"
-               value="{{ equipment_info.verif_date|strftime('%Y-%m-%d') if not is_create else '' }}">
+               value="{{ equipment_info.date_from|strftime('%Y-%m-%d') if not is_create else '' }}">
       </div>
 
       <div class="mb-3">
-        <label for="verif_limit_date" class="form-label label-text"><b>Поверка до</b></label>
+        <label for="date_to" class="form-label label-text"><b>Поверка до</b></label>
         <input type="date"
-               id="verif_limit_date"
-               name="verif_limit_date"
+               id="date_to"
+               name="date_to"
                class="form-control input-text text-center"
-               value="{{ equipment_info.verif_limit_date|strftime('%Y-%m-%d') if not is_create else '' }}">
+               value="{{ equipment_info.date_to|strftime('%Y-%m-%d') if not is_create else '' }}">
       </div>
 
       <div class="mb-3">

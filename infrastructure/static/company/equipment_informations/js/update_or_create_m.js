@@ -18,8 +18,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     try {
       const jsonData = {
-        verif_date: formData.get('verif_date'),
-        verif_limit_date: formData.get('verif_limit_date'),
+        date_from: formData.get('date_from'),
+        date_to: formData.get('date_to'),
         info: formData.get('info')
       };
 

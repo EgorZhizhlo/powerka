@@ -23,8 +23,10 @@ from access_control import (
 
 from core.config import settings
 from core.db.dependencies import get_company_timezone
-from core.exceptions import CustomHTTPException, check_is_none
 from core.templates.jinja_filters import format_datetime_tz
+from core.exceptions.api.common import (
+    NotFoundError, ForbiddenError, BadRequestError
+)
 
 from infrastructure.db import async_db_session, async_db_session_begin
 
@@ -37,6 +39,8 @@ from models.enums import EmployeeStatus
 
 from apps.company_app.common import (
     validate_image,
+)
+from apps.company_app.services import (
     check_employee_limit_available,
     increment_employee_count,
     decrement_employee_count
@@ -169,8 +173,8 @@ async def api_get_employee_image(
     )).scalar_one_or_none()
 
     if not employee or not employee.image:
-        raise CustomHTTPException(
-            company_id=company_id, status_code=404, detail="Фото не найдено"
+        raise NotFoundError(
+            type="Фото не найдено!",
         )
 
     return Response(content=employee.image, media_type="image/jpeg")
@@ -196,16 +200,16 @@ async def api_create_employee(
             EmployeeStatus.dispatcher2, EmployeeStatus.verifier
         }
     if employee_data.status not in allowed_statuses:
-        raise CustomHTTPException(
-            company_id=company_id,
-            status_code=400,
-            detail="Вы использовали несуществующую или недоступную для вас роль сотрудника."
+        raise BadRequestError(
+            detail=(
+                "Вы использовали несуществующую или недоступную для вас роль!"
+            )
         )
 
     await check_employee_limit_available(session, company_id, required_slots=1)
 
     if employee_data.image:
-        validate_image(company_id, employee_data.image)
+        validate_image(employee_data.image)
 
     new_employee = EmployeeModel()
     for field, value in employee_data.model_dump(
@@ -273,12 +277,14 @@ async def api_create_employee(
         else:
             detail = f"Ошибка БД: {constraint or column or text}"
 
-        raise CustomHTTPException(
-            company_id=company_id, status_code=400, detail=detail)
+        raise BadRequestError(
+            detail=detail
+        )
 
     except Exception as ex:
-        raise CustomHTTPException(
-            company_id=company_id, status_code=404, detail=str(ex))
+        raise BadRequestError(
+            detail=str(ex)
+        )
 
     await bump_jwt_token_version(f"user:{new_employee.id}:auth_version")
 
@@ -306,9 +312,10 @@ async def api_update_employee(
         )
     ).scalar_one_or_none()
 
-    await check_is_none(
-        employee, type="Сотрудник", id=employee_id, company_id=company_id
-    )
+    if not employee:
+        raise NotFoundError(
+            type="Сотрудник не найден!",
+        )
 
     if status == EmployeeStatus.director:
         if user_id != employee.id:
@@ -330,22 +337,18 @@ async def api_update_employee(
         }
 
     if employee.status not in allowed_statuses:
-        raise CustomHTTPException(
-            company_id=company_id,
-            status_code=400,
-            detail="В доступе к сотруднику отказано."
+        raise ForbiddenError(
+            detail="В доступе к сотруднику отказано!"
         )
 
     if employee_data.status not in allowed_statuses:
-        raise CustomHTTPException(
-            company_id=company_id,
-            status_code=400,
-            detail="Вы использовали недоступную или неизвестную роль."
+        raise BadRequestError(
+            detail="Вы использовали недоступную или неизвестную роль!"
         )
 
     try:
         if employee_data.image:
-            validate_image(company_id, employee_data.image)
+            validate_image(employee_data.image)
             employee.image = employee_data.image
 
         for field, value in employee_data.model_dump(
@@ -417,12 +420,14 @@ async def api_update_employee(
         else:
             detail = "Ошибка БД: " + str(e)
 
-        raise CustomHTTPException(
-            company_id=company_id, status_code=400, detail=detail)
+        raise BadRequestError(
+            detail=detail
+        )
 
     except Exception as ex:
-        raise CustomHTTPException(
-            company_id=company_id, status_code=404, detail=str(ex))
+        raise BadRequestError(
+            detail=str(ex)
+        )
 
     await bump_jwt_token_version(f"user:{employee.id}:auth_version")
 
@@ -454,9 +459,10 @@ async def api_delete_employee(
         )
     )).scalar_one_or_none()
 
-    await check_is_none(
-        employee, type="Сотрудник", id=employee_id, company_id=company_id
-    )
+    if not employee:
+        raise NotFoundError(
+            type="Сотрудник не найден!",
+        )
 
     if status == EmployeeStatus.director:
         if user_id != employee.id:
@@ -478,9 +484,8 @@ async def api_delete_employee(
         }
 
     if employee.status not in allowed_statuses:
-        raise CustomHTTPException(
-            company_id=company_id, status_code=404,
-            detail="В доступе к сотруднику отказано."
+        raise ForbiddenError(
+            detail="В доступе к сотруднику отказано!"
         )
 
     has_links = bool(
@@ -519,9 +524,10 @@ async def api_restore_employee(
             EmployeeModel.is_deleted.is_(True))
     )).scalar_one_or_none()
 
-    await check_is_none(
-        employee, type="Сотрудник", id=employee_id, company_id=company_id
-    )
+    if not employee:
+        raise NotFoundError(
+            type="Сотрудник не найден!",
+        )
 
     if status == EmployeeStatus.director:
         if user_id != employee.id:
@@ -543,9 +549,8 @@ async def api_restore_employee(
         }
 
     if employee.status not in allowed_statuses:
-        raise CustomHTTPException(
-            company_id=company_id, status_code=404,
-            detail="В доступе к сотруднику отказано."
+        raise ForbiddenError(
+            detail="В доступе к сотруднику отказано!"
         )
 
     await check_employee_limit_available(session, company_id, required_slots=1)

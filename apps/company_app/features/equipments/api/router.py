@@ -12,8 +12,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
 from core.db.dependencies import get_company_timezone
-from core.exceptions import CustomHTTPException, check_is_none
 from core.templates.jinja_filters import format_datetime_tz
+from core.exceptions.api.common import (
+    NotFoundError, BadRequestError, ForbiddenError
+)
 
 from access_control import (
     JwtData,
@@ -111,24 +113,23 @@ async def api_create_equipment(
 
     if await repo.exists_with_factory_number(
             company_id, equipment_data.name, equipment_data.factory_number):
-        raise CustomHTTPException(
-            company_id=company_id, status_code=400,
-            detail="Оборудование с таким заводским номером уже существует!")
+        raise BadRequestError(
+            detail="Оборудование с таким заводским номером уже существует!"
+        )
 
     if await repo.exists_with_inventory_number(
             company_id, equipment_data.inventory_number):
-        raise CustomHTTPException(
-            company_id=company_id, status_code=400,
+        raise BadRequestError(
             detail="Оборудование с таким инвентарным номером уже существует!")
 
     if equipment_data.image:
-        validate_image(company_id, equipment_data.image)
+        validate_image(equipment_data.image)
 
     if equipment_data.image2:
-        validate_image(company_id, equipment_data.image2)
+        validate_image(equipment_data.image2)
 
     if equipment_data.document_pdf:
-        validate_pdf(company_id, equipment_data.document_pdf)
+        validate_pdf(equipment_data.document_pdf)
 
     await repo.create(company_id, **equipment_data.model_dump())
 
@@ -148,35 +149,38 @@ async def api_update_equipment(
     if await repo.exists_with_factory_number(
             company_id, equipment_data.name, equipment_data.factory_number,
             exclude_id=equipment_id):
-        raise CustomHTTPException(
-            company_id=company_id, status_code=400,
-            detail="Оборудование с таким заводским номером уже существует!")
+        raise BadRequestError(
+            detail="Оборудование с таким заводским номером уже существует!"
+        )
 
     if await repo.exists_with_inventory_number(
             company_id, equipment_data.inventory_number,
             exclude_id=equipment_id):
-        raise CustomHTTPException(
-            company_id=company_id, status_code=400,
-            detail="Оборудование с таким инвентарным номером уже существует!")
+        raise BadRequestError(
+            detail="Оборудование с таким инвентарным номером уже существует!"
+        )
 
     equipment = await repo.get_by_id(
         equipment_id, company_id, only_active=False)
-    await check_is_none(
-        equipment, type="Оборудование", id=equipment_id, company_id=company_id)
+    if not equipment:
+        raise NotFoundError(
+            company_id=company_id,
+            detail="Оборудование не найдено!"
+        )
 
     if equipment_data.image is not None:
         if equipment_data.image != b'':
-            validate_image(company_id, equipment_data.image)
+            validate_image(equipment_data.image)
             equipment.image = equipment_data.image
 
     if equipment_data.image2 is not None:
         if equipment_data.image2 != b'':
-            validate_image(company_id, equipment_data.image2)
+            validate_image(equipment_data.image2)
             equipment.image2 = equipment_data.image2
 
     if equipment_data.document_pdf is not None:
         if equipment_data.document_pdf != b'':
-            validate_pdf(company_id, equipment_data.document_pdf)
+            validate_pdf(equipment_data.document_pdf)
             equipment.document_pdf = equipment_data.document_pdf
 
     await repo.update(
@@ -195,19 +199,20 @@ async def delete_equipment(
     session: AsyncSession = Depends(async_db_session_begin),
 ):
     if user_data.status == EmployeeStatus.auditor:
-        raise CustomHTTPException(
-            status_code=404, detail="У вас нет доступа к этому функционалу.",
-            company_id=company_id
+        raise ForbiddenError(
+            detail="У вас нет доступа к этому функционалу!",
         )
 
     repo = EquipmentRepository(session)
 
     equipment = await repo.get_by_id(
-        equipment_id, company_id, with_info=True, only_active=True)
-
-    await check_is_none(
-        equipment, type="Оборудование", id=equipment_id, company_id=company_id
+        equipment_id, company_id, with_info=True, only_active=True
     )
+    if not equipment:
+        raise NotFoundError(
+            company_id=company_id,
+            detail="Оборудование не найдено!"
+        )
 
     has_verifications = bool(equipment.verifications)
     equipment.verifiers.clear()
@@ -242,18 +247,20 @@ async def api_restore_equipment(
     session: AsyncSession = Depends(async_db_session_begin),
 ):
     if user_data.status == EmployeeStatus.auditor:
-        raise CustomHTTPException(
-            status_code=404, detail="У вас нет доступа к этому функционалу.",
-            company_id=company_id
+        raise ForbiddenError(
+            detail="У вас нет доступа к этому функционалу!",
         )
 
     repo = EquipmentRepository(session)
 
     equipment = await repo.get_by_id(
-        equipment_id, company_id, only_deleted=True, with_info=True)
-    await check_is_none(
-        equipment, type="Оборудование", id=equipment_id, company_id=company_id
+        equipment_id, company_id, only_deleted=True, with_info=True
     )
+    if not equipment:
+        raise NotFoundError(
+            company_id=company_id,
+            detail="Оборудование не найдено!"
+        )
 
     equipment.is_deleted = False
     for info in equipment.equipment_info or []:
@@ -276,9 +283,8 @@ async def api_get_equipment_file(
     repo = EquipmentRepository(session)
     file_bytes = await repo.get_file(equipment_id, company_id, field)
     if not file_bytes:
-        raise CustomHTTPException(
-            status_code=404, detail="Файл не найден",
-            company_id=company_id
+        raise NotFoundError(
+            detail="Файл не найден!",
         )
 
     media_type = "image/jpeg" if field in {

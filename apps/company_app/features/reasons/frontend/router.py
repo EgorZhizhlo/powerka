@@ -4,8 +4,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
-from core.exceptions import check_is_none
 from core.templates.template_manager import templates
+from core.exceptions.frontend.common import NotFoundError
 
 from infrastructure.db import async_db_session
 from models import ReasonModel
@@ -80,9 +80,11 @@ async def view_update_reason(
         )
     ).scalar_one_or_none()
 
-    await check_is_none(
-        reason, type="Причина непригодности", id=reason_id,
-        company_id=company_id)
+    if not reason:
+        raise NotFoundError(
+            company_id=company_id,
+            detail="Причина непригодности не найдена!"
+        )
 
     context = {
         "request": request,

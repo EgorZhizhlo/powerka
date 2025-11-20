@@ -1,9 +1,6 @@
 from typing import List
 
-from fastapi import (
-    APIRouter, HTTPException, status as status_code,
-    Depends, Body, Query
-)
+from fastapi import APIRouter, Depends, Body, Query
 
 from sqlalchemy import func, desc, or_, select
 from sqlalchemy.orm import selectinload
@@ -28,6 +25,7 @@ from models.associations import (
 )
 
 from core.config import settings
+from core.exceptions.api.common import NotFoundError
 
 
 orders_without_date_api_router = APIRouter(
@@ -219,9 +217,8 @@ async def update_order_status(
     order = await session.scalar(q)
 
     if not order:
-        raise HTTPException(
-            status_code=status_code.HTTP_404_NOT_FOUND,
-            detail="Заявка не найдена"
+        raise NotFoundError(
+            detail="Заявка не найдена!"
         )
 
     order.status = payload.status

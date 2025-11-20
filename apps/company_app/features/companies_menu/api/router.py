@@ -14,28 +14,31 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.utils.time_utils import date_utc_now
-from core.exceptions import CustomHTTPException, check_is_none
 from core.config import settings
+from core.utils.time_utils import date_utc_now
 from core.cache.company_timezone_cache import company_tz_cache
+from core.exceptions.api.common import (
+    NotFoundError, ForbiddenError, BadRequestError
+)
 
 from infrastructure.cache import redis
 from infrastructure.db import async_db_session_begin
 from infrastructure.yandex_disk.service import get_yandex_service
 
-from models.enums import EmployeeStatus
 from models import (
     EmployeeModel, CompanyModel, VerifierModel, VerificationLogModel,
     CompanyCalendarParameterModel
 )
+from models.enums import EmployeeStatus
 
 from apps.company_app.common import (
     _register_delete_vote, _clear_delete_votes, _try_acquire_delete_lock,
     _release_delete_lock, _company_delete_key,
+)
+from apps.company_app.services import (
     check_employee_limit_available,
     recalculate_employee_count
 )
-
 from apps.company_app.schemas.companies_menu import (
     EditCompanyFormDirector, EditCompanyFormAdmin
 )
@@ -53,9 +56,9 @@ async def api_create_company(
     admin_form: EditCompanyFormAdmin = Body(...),
 ):
     if user_data.status != EmployeeStatus.admin:
-        raise CustomHTTPException(
-            status_code=403,
-            detail="Доступ только для администратора")
+        raise ForbiddenError(
+            detail="Доступ только для администратора!"
+        )
 
     assigned_employee_ids: set[int] = set()
     company = CompanyModel(
@@ -115,27 +118,21 @@ async def api_update_company(
 
     # Проверяем что хотя бы одна форма пришла
     if director_form is None and admin_form is None:
-        raise CustomHTTPException(
-            status_code=400,
-            detail="Необходимо передать данные формы",
-            company_id=company_id
+        raise BadRequestError(
+            detail="Запрос не содержит данных формы!",
         )
 
     # Выбираем форму в зависимости от роли
     if status == EmployeeStatus.director:
         if director_form is None:
-            raise CustomHTTPException(
-                status_code=400,
-                detail="Для директора необходима форма director_form",
-                company_id=company_id
+            raise BadRequestError(
+                detail="Запрос не содержит данных формы директора!"
             )
         form_data = director_form
     else:  # admin
         if admin_form is None:
-            raise CustomHTTPException(
-                status_code=400,
-                detail="Для администратора необходима форма admin_form",
-                company_id=company_id
+            raise BadRequestError(
+                detail="Запрос не содержит данных формы администратора!"
             )
         form_data = admin_form
 
@@ -162,8 +159,10 @@ async def api_update_company(
         params = CompanyCalendarParameterModel(company_id=company_id)
         session.add(params)
 
-    await check_is_none(
-        company, type="Компания", id=company_id, company_id=company_id)
+    if not company:
+        raise NotFoundError(
+            detail="Компания не найдена!"
+        )
 
     old_company_name = company.name
     old_employee_ids = {e.id for e in (company.employees or [])}
@@ -268,8 +267,9 @@ async def api_delete_company(
     session: AsyncSession = Depends(async_db_session_begin),
 ):
     if user_data.status != EmployeeStatus.admin:
-        raise CustomHTTPException(
-            status_code=403, detail="Доступ только для администратора")
+        raise ForbiddenError(
+            detail="Доступ только для администратора!"
+        )
 
     company = (
         await session.execute(
@@ -278,8 +278,10 @@ async def api_delete_company(
             .options(selectinload(CompanyModel.employees))
         )
     ).scalar_one_or_none()
-    await check_is_none(
-        company, type="Компания", id=company_id, company_id=company_id)
+    if not company:
+        raise NotFoundError(
+            detail="Компания не найдена!"
+        )
 
     votes = await _register_delete_vote(company_id, user_data.id)
     if votes < 2:
@@ -333,8 +335,9 @@ async def api_cancel_delete_company(
     ),
 ):
     if user_data.status != EmployeeStatus.admin:
-        raise CustomHTTPException(
-            status_code=403, detail="Доступ только для администратора")
+        raise ForbiddenError(
+            detail="Доступ только для администратора!"
+        )
 
     key = _company_delete_key(company_id)
     await redis.srem(key, str(user_data.id))

@@ -1,10 +1,7 @@
 from datetime import date as date_
 from urllib.parse import quote
 
-from fastapi import (
-    APIRouter, HTTPException, status as status_code,
-    Depends, Body, Query
-)
+from fastapi import APIRouter, Depends, Body, Query
 from fastapi.responses import StreamingResponse
 
 from sqlalchemy import select, delete
@@ -17,16 +14,15 @@ from access_control import (
     active_dispatcher2_exception
 )
 
-from apps.calendar_app.common import (
-    _load_orders, get_or_create_route_statistic,
-    lock_routes_advisory, release_slot, reserve_slot
-)
-
 from core.config import settings
 from core.reports import create_report_route_orders_list
-from core.exceptions import CustomHTTPException
+from core.exceptions.api.common import (
+    NotFoundError, ForbiddenError,
+    BadRequestError, ConflictError
+)
 
 from infrastructure.db import async_db_session, async_db_session_begin
+
 from models import (
     EmployeeModel,
     CounterAssignmentModel,
@@ -39,6 +35,10 @@ from models import (
 from models.associations import employees_companies, employees_routes
 from models.enums import map_verification_water_type_to_label
 
+from apps.calendar_app.common import (
+    _load_orders, get_or_create_route_statistic,
+    lock_routes_advisory, release_slot, reserve_slot
+)
 from apps.calendar_app.schemas.orders_planning import (
     RouteSchema, OrderingRouteSchema, EmployeeSchema, ReorderPayload,
     OrderForOrderingSchema, RouteAssignmentSchema, RouteAssignmentUpsert,
@@ -236,27 +236,23 @@ async def reorder_orders_in_routes(
     session: AsyncSession = Depends(async_db_session_begin),
 ):
     if not payload.moved_order_id:
-        raise CustomHTTPException(
-            status_code=status_code.HTTP_400_BAD_REQUEST,
-            company_id=company_id,
+        raise BadRequestError(
             detail="Вы не указали опорную заявку!"
         )
 
     if payload.change_route:
         if payload.old_route_id is None or payload.new_route_id is None:
-            raise CustomHTTPException(
-                status_code=status_code.HTTP_400_BAD_REQUEST,
-                company_id=company_id,
-                detail="При смене маршрута вы не указали "
-                "новый или старый маршрут!"
+            raise BadRequestError(
+                detail=(
+                    "При смене маршрута вы не указали "
+                    "новый или старый маршрут!"
+                )
             )
     else:
         payload.old_route_id = payload.new_route_id
 
     if not payload.new_order_id_list:
-        raise CustomHTTPException(
-            status_code=status_code.HTTP_400_BAD_REQUEST,
-            company_id=company_id,
+        raise BadRequestError(
             detail="Новый маршрут не может быть пустым!"
         )
 
@@ -270,25 +266,19 @@ async def reorder_orders_in_routes(
     if employee_route_ids and not {
                 payload.old_route_id, payload.new_route_id
             }.issubset(employee_route_ids):
-        raise CustomHTTPException(
-            status_code=status_code.HTTP_403_FORBIDDEN,
-            company_id=company_id,
+        raise ForbiddenError(
             detail="Нет доступа к одному из маршрутов!"
         )
 
     all_ids = (payload.old_order_id_list or []) + \
         (payload.new_order_id_list or [])
     if payload.change_route and len(all_ids) != len(set(all_ids)):
-        raise CustomHTTPException(
-            status_code=status_code.HTTP_400_BAD_REQUEST,
-            company_id=company_id,
+        raise BadRequestError(
             detail="Списки заявок содержат дубликаты!"
         )
 
     if payload.moved_order_id not in set(all_ids):
-        raise CustomHTTPException(
-            status_code=status_code.HTTP_400_BAD_REQUEST,
-            company_id=company_id,
+        raise BadRequestError(
             detail="Опорная заявка отсутствует в переданных списках!"
         )
 
@@ -303,24 +293,18 @@ async def reorder_orders_in_routes(
         )
     ).scalar_one_or_none()
     if not moved_order:
-        raise CustomHTTPException(
-            status_code=404,
-            company_id=company_id,
+        raise NotFoundError(
             detail="Перемещаемая заявка не найдена!"
         )
 
     # при смене маршрута убедимся, что заявка действительно на old_route_id
     if payload.change_route and moved_order.route_id != payload.old_route_id:
-        raise CustomHTTPException(
-            status_code=status_code.HTTP_400_BAD_REQUEST,
-            company_id=company_id,
+        raise ConflictError(
             detail="Опорная заявка не относится к старому маршруту!")
 
     date = moved_order.date
     if not date:
-        raise CustomHTTPException(
-            status_code=status_code.HTTP_400_BAD_REQUEST,
-            company_id=company_id,
+        raise BadRequestError(
             detail="У заявки отсутствует дата!"
         )
 
@@ -343,9 +327,7 @@ async def reorder_orders_in_routes(
             await release_slot(session, payload.old_route_id, date)
             await reserve_slot(session, payload.new_route_id, date)
         except ValueError:
-            raise CustomHTTPException(
-                status_code=status_code.HTTP_400_BAD_REQUEST,
-                company_id=company_id,
+            raise ConflictError(
                 detail="Лимит заявок на новый маршрут исчерпан!"
             )
 
@@ -374,9 +356,7 @@ async def reorder_orders_in_routes(
         for idx, order_id in enumerate(payload.old_order_id_list, start=1):
             order = old_map.get(order_id)
             if not order:
-                raise CustomHTTPException(
-                    status_code=status_code.HTTP_400_BAD_REQUEST,
-                    company_id=company_id,
+                raise NotFoundError(
                     detail=f"Заявка {order_id} не найдена"
                     " среди старого маршрута!"
                 )
@@ -390,9 +370,7 @@ async def reorder_orders_in_routes(
         for idx, order_id in enumerate(payload.new_order_id_list, start=1):
             order = new_map.get(order_id)
             if not order:
-                raise CustomHTTPException(
-                    status_code=status_code.HTTP_400_BAD_REQUEST,
-                    company_id=company_id,
+                raise NotFoundError(
                     detail=f"Заявка {order_id} не найдена"
                     " среди нового маршрута!"
                 )
@@ -442,8 +420,7 @@ async def upsert_route_assignment(
     ).scalars().all()
 
     if employee_route_ids and payload.route_id not in employee_route_ids:
-        raise HTTPException(
-            status_code=status_code.HTTP_404_NOT_FOUND,
+        raise NotFoundError(
             detail="Маршрут не найден!"
         )
 
@@ -456,8 +433,7 @@ async def upsert_route_assignment(
         )
     ).scalar_one_or_none()
     if not route or route.company_id != company_id:
-        raise HTTPException(
-            status_code=status_code.HTTP_404_NOT_FOUND,
+        raise NotFoundError(
             detail="Маршрут не найден!"
         )
 
@@ -475,9 +451,9 @@ async def upsert_route_assignment(
             )
         ).scalar_one_or_none()
         if not emp:
-            raise HTTPException(
-                status_code=status_code.HTTP_404_NOT_FOUND,
-                detail="Сотрудник не найден!")
+            raise NotFoundError(
+                detail="Сотрудник не найден!"
+            )
 
     routes_to_lock = {payload.route_id}
     if new_emp_id is not None:
@@ -648,16 +624,14 @@ async def upsert_route_additional(
         )
     ).scalars().all()
     if employee_route_ids and payload.route_id not in employee_route_ids:
-        raise HTTPException(
-            status_code=status_code.HTTP_403_FORBIDDEN,
-            detail="Нет доступа к маршруту"
+        raise ForbiddenError(
+            detail="Нет доступа к маршруту!"
         )
 
     route = await session.get(RouteModel, payload.route_id)
     if not route or route.company_id != company_id:
-        raise HTTPException(
-            status_code=status_code.HTTP_404_NOT_FOUND,
-            detail="Маршрут не найден"
+        raise NotFoundError(
+            detail="Маршрут не найден!"
         )
 
     row = await session.scalar(
@@ -702,8 +676,7 @@ async def order_ordering_download(
         )
     ).scalars().all()
     if employee_route_ids and route_id not in employee_route_ids:
-        raise HTTPException(
-            status_code=status_code.HTTP_403_FORBIDDEN,
+        raise ForbiddenError(
             detail="Доступ к маршруту запрещён!"
         )
 
@@ -716,8 +689,7 @@ async def order_ordering_download(
         )
     ).scalar_one_or_none()
     if not route:
-        raise HTTPException(
-            status_code=status_code.HTTP_404_NOT_FOUND,
+        raise NotFoundError(
             detail="Маршрут не найден!"
         )
 

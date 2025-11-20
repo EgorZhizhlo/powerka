@@ -15,8 +15,8 @@ from access_control import (
 
 from core.config import settings
 from core.db.dependencies import get_company_timezone
-from core.exceptions import check_is_none
 from core.templates.jinja_filters import format_datetime_tz
+from core.exceptions.api.common import NotFoundError
 
 from infrastructure.db import async_db_session, async_db_session_begin
 
@@ -132,8 +132,10 @@ async def api_update_method(
         )
     )).scalar_one_or_none()
 
-    await check_is_none(
-        method, type="Методика", id=method_id, company_id=company_id)
+    if not method:
+        raise NotFoundError(
+            detail="Методика не найдена!"
+        )
 
     method.name = method_data.name
 
@@ -149,7 +151,7 @@ async def api_delete_method(
     user_data: JwtData = Depends(check_include_in_active_company),
     session: AsyncSession = Depends(async_db_session_begin),
 ):
-    method: MethodModel | None = (await session.execute(
+    method = (await session.execute(
         select(MethodModel)
         .where(MethodModel.id == method_id,
                MethodModel.company_id == company_id,
@@ -161,8 +163,10 @@ async def api_delete_method(
         )
     )).scalar_one_or_none()
 
-    await check_is_none(
-        method, type="Методика", id=method_id, company_id=company_id)
+    if not method:
+        raise NotFoundError(
+            detail="Методика не найдена!"
+        )
 
     # Есть ли хоть одна поверка у методики ИЛИ у любого гос-реестра?
     has_verifs = bool(method.verifications) or any(
@@ -201,8 +205,10 @@ async def api_restore_method(
         .options(selectinload(MethodModel.registry_numbers))
     )).scalar_one_or_none()
 
-    await check_is_none(
-        method, type="Методика", id=method_id, company_id=company_id)
+    if not method:
+        raise NotFoundError(
+            detail="Методика не найдена!"
+        )
 
     method.is_deleted = False
     for rn in method.registry_numbers:

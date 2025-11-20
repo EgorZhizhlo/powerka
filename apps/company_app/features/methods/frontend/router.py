@@ -12,8 +12,8 @@ from access_control import (
 )
 
 from core.config import settings
-from core.exceptions import check_is_none
 from core.templates.template_manager import templates
+from core.exceptions.frontend.common import NotFoundError
 
 from apps.company_app.common import make_context
 
@@ -80,8 +80,11 @@ async def view_update_method(
         )
     ).scalar_one_or_none()
 
-    await check_is_none(
-        method, type="Методика", id=method_id, company_id=company_id)
+    if not method:
+        raise NotFoundError(
+            company_id=company_id,
+            detail="Методика не найдена!"
+        )
 
     context = {
         "request": request,

@@ -5,8 +5,8 @@ from sqlalchemy.orm import selectinload, load_only
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
-from core.exceptions import check_is_none
 from core.templates.template_manager import templates
+from core.exceptions.frontend.common import NotFoundError
 
 from infrastructure.db import async_db_session
 from models import (
@@ -110,8 +110,11 @@ async def view_update_verifier(
         )
     ).scalar_one_or_none()
 
-    await check_is_none(
-        verifier, type="Поверитель", id=verifier_id, company_id=company_id)
+    if not verifier:
+        raise NotFoundError(
+            company_id=company_id,
+            detail="Поверитель не найден!"
+        )
 
     equipments = await session.execute(
         select(EquipmentModel)

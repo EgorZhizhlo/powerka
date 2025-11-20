@@ -16,8 +16,8 @@ from access_control import (
 
 from core.config import settings
 from core.db.dependencies import get_company_timezone
-from core.exceptions import check_is_none
 from core.templates.jinja_filters import format_datetime_tz
+from core.exceptions.api.common import NotFoundError
 
 from infrastructure.db import async_db_session, async_db_session_begin
 
@@ -116,9 +116,11 @@ async def api_update_modification(
         )
     )).scalar_one_or_none()
 
-    await check_is_none(
-        modification, type="Модификация СИ", id=modification_id,
-        company_id=company_id)
+    if not modification:
+        raise NotFoundError(
+            company_id=company_id,
+            detail="Модификация СИ не найдена!"
+        )
 
     modification.modification_name = modification_data.modification_name
 
@@ -134,7 +136,7 @@ async def api_delete_modification(
     session: AsyncSession = Depends(async_db_session_begin),
     user_data: JwtData = Depends(check_include_in_active_company),
 ):
-    mod = (
+    modification = (
         await session.scalar(
             select(SiModificationModel)
             .where(
@@ -148,22 +150,22 @@ async def api_delete_modification(
             )
         )
     )
-    await check_is_none(
-        result=mod,
-        type="Модификация СИ",
-        id=modification_id,
-        company_id=company_id
-    )
 
-    has_verifs = bool(mod.verifications)
+    if not modification:
+        raise NotFoundError(
+            company_id=company_id,
+            detail="Модификация СИ не найдена!"
+        )
 
-    mod.registry_numbers.clear()
+    has_verifs = bool(modification.verifications)
+
+    modification.registry_numbers.clear()
 
     if has_verifs:
-        mod.is_deleted = True
+        modification.is_deleted = True
     else:
         await session.flush()
-        await session.delete(mod)
+        await session.delete(modification)
 
     await session.flush()
 
@@ -177,7 +179,7 @@ async def api_restore_modification(
     session: AsyncSession = Depends(async_db_session_begin),
     user_data: JwtData = Depends(check_include_in_active_company),
 ):
-    mod = await session.scalar(
+    modification = await session.scalar(
         select(SiModificationModel)
         .where(
             SiModificationModel.id == modification_id,
@@ -185,13 +187,13 @@ async def api_restore_modification(
             SiModificationModel.is_deleted.is_(True),
         )
     )
-    await check_is_none(
-        result=mod,
-        type="Модификация СИ",
-        id=modification_id,
-        company_id=company_id
-    )
 
-    mod.is_deleted = False
+    if not modification:
+        raise NotFoundError(
+            company_id=company_id,
+            detail="Модификация СИ не найдена!"
+        )
+
+    modification.is_deleted = False
     await session.flush()
     return Response(status_code=status_code.HTTP_204_NO_CONTENT)

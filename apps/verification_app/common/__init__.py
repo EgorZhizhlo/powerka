@@ -11,11 +11,6 @@ from .autogenerate_files import (
 from .auto_metrolog_info import right_automatisation_metrolog
 from .check_equipment_conditions import check_equip_conditions
 from .verifications_cache import clear_verification_cache
-from .tariff_verification_service import (
-    check_verification_limit_available,
-    increment_verification_count,
-    decrement_verification_count
-)
 
 __all__ = [
     "entry_filter",
@@ -34,7 +29,4 @@ __all__ = [
     "right_automatisation_metrolog",
     "check_equip_conditions",
     "clear_verification_cache",
-    "check_verification_limit_available",
-    "increment_verification_count",
-    "decrement_verification_count"
 ]

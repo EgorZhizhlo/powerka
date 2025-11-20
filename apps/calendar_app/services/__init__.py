@@ -13,6 +13,11 @@ from apps.calendar_app.services.appeal import (
     get_read_appeal_service,
     get_action_appeal_service
 )
+from apps.calendar_app.services.tariff_order import (
+    check_order_limit_available,
+    increment_order_count,
+    decrement_order_count,
+)
 
 
 __all__ = [
@@ -25,4 +30,7 @@ __all__ = [
     "AppealService",
     "get_read_appeal_service",
     "get_action_appeal_service",
+    "check_order_limit_available",
+    "increment_order_count",
+    "decrement_order_count",
 ]

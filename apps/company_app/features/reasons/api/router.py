@@ -15,8 +15,8 @@ from access_control import (
 
 from core.config import settings
 from core.db.dependencies import get_company_timezone
-from core.exceptions import CustomHTTPException, check_is_none
 from core.templates.jinja_filters import format_datetime_tz
+from core.exceptions.api.common import NotFoundError
 
 from infrastructure.db import async_db_session, async_db_session_begin
 from models import ReasonModel
@@ -125,9 +125,10 @@ async def api_update_reason(
         )
     ).scalar_one_or_none()
 
-    await check_is_none(
-        reason, type="Причина непригодности", id=reason_id,
-        company_id=company_id)
+    if not reason:
+        raise NotFoundError(
+            detail="Причина непригодности не найдена!"
+        )
 
     for field, value in reason_data.model_dump().items():
         setattr(reason, field, value)
@@ -144,7 +145,7 @@ async def api_delete_reason(
     user_data: JwtData = Depends(check_include_in_active_company),
     session: AsyncSession = Depends(async_db_session_begin),
 ):
-    reason: ReasonModel | None = (
+    reason = (
         await session.execute(
             select(ReasonModel)
             .where(
@@ -156,11 +157,9 @@ async def api_delete_reason(
         )
     ).scalar_one_or_none()
 
-    if reason is None:
-        raise CustomHTTPException(
-            status_code=status_code.HTTP_404_NOT_FOUND,
-            detail="Причина не найдена",
-            company_id=company_id
+    if not reason:
+        raise NotFoundError(
+            detail="Причина непригодности не найдена!"
         )
 
     can_hard_delete = not reason.verifications
@@ -191,11 +190,9 @@ async def api_restore_reason(
         )
     ).scalar_one_or_none()
 
-    if reason is None:
-        raise CustomHTTPException(
-            status_code=status_code.HTTP_404_NOT_FOUND,
-            detail="Удалённая причина не найдена",
-            company_id=company_id
+    if not reason:
+        raise NotFoundError(
+            detail="Причина непригодности не найдена!"
         )
 
     reason.is_deleted = False

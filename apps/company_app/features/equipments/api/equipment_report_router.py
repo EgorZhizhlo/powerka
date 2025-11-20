@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Query, Depends, HTTPException
+from fastapi import APIRouter, Query, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime
@@ -7,18 +7,23 @@ import pandas as pd
 import io
 from fastapi.responses import StreamingResponse
 
+from access_control import (
+    JwtData, check_include_in_not_active_company
+)
+
 from models import (
     VerifierEquipmentHistoryModel,
     VerifierModel,
     EquipmentModel,
 )
-from infrastructure.db import async_db_session_begin
 from models.enums import VerifierEquipmentAction
 
 from core.config import settings
+from core.exceptions.api.common import (
+    BadRequestError
+)
 
-from access_control import (
-    JwtData, check_include_in_not_active_company)
+from infrastructure.db import async_db_session_begin
 
 
 equipment_report_api_router = APIRouter(
@@ -36,9 +41,9 @@ async def export_equipment_history_report(
     session: AsyncSession = Depends(async_db_session_begin),
 ):
     if date_from >= date_to:
-        raise HTTPException(
-            status_code=400,
-            detail="'Дата до' должна быть больше 'Дата от'!")
+        raise BadRequestError(
+            detail="'Дата до' должна быть больше 'Дата от'!"
+        )
 
     query = (
         select(

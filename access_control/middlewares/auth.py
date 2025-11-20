@@ -3,6 +3,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from itsdangerous import URLSafeTimedSerializer, URLSafeSerializer
 
 from sqlalchemy import select
+from models import EmployeeModel, CompanyModel
 
 from access_control.tokens import (
     verify_token,
@@ -10,12 +11,12 @@ from access_control.tokens import (
     get_jwt_token_version
 )
 
-from infrastructure.db.session import async_session_maker
-from models import EmployeeModel, CompanyModel
-
 from core.config import settings
-from core.exceptions import InvalidTokenException, TokenExpiredException
+from core.exceptions.app.auth.token import (
+    InvalidTokenError, TokenExpiredError
+)
 
+from infrastructure.db.session import async_session_maker
 
 SECRET_KEY = settings.secret_key
 SALT = settings.salt
@@ -43,13 +44,13 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if auth_token:
             try:
                 user_data = verify_token(auth_token)
-            except (TokenExpiredException, InvalidTokenException):
+            except (TokenExpiredError, InvalidTokenError):
                 return await self._clear_and_continue(request, call_next)
 
         if comp_token:
             try:
                 comp_data = verify_untimed_token(comp_token)
-            except InvalidTokenException:
+            except InvalidTokenError:
                 return await self._clear_and_continue(request, call_next)
 
         if not user_data or not comp_data:

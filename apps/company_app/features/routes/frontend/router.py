@@ -4,8 +4,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
-from core.exceptions import check_is_none
 from core.templates.template_manager import templates
+from core.exceptions.frontend.common import NotFoundError
 
 from infrastructure.db import async_db_session
 from models import RouteModel
@@ -70,8 +70,11 @@ async def view_update_route(
         select(RouteModel)
         .where(RouteModel.id == route_id, RouteModel.company_id == company_id)
     )).scalar_one_or_none()
-    await check_is_none(
-        route, type="Маршрут", id=route_id, company_id=company_id)
+    if not route:
+        raise NotFoundError(
+            company_id=company_id,
+            detail="Маршрут не найден!"
+        )
 
     context = {
         "request": request,

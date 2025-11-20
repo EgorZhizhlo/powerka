@@ -5,6 +5,6 @@ from datetime import date as date_
 
 
 class EquipmentInfoCreate(BaseModel):
-    verif_date: Optional[date_]
-    verif_limit_date: Optional[date_]
+    date_from: Optional[date_]
+    date_to: Optional[date_]
     info: Optional[str] = Field("", max_length=200)

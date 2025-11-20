@@ -11,7 +11,7 @@ class CustomHTTPException(HTTPException):
         self.redirect_url = redirect_url
 
 
-class RedirectException(CustomHTTPException):
+class RedirectHttpException(CustomHTTPException):
     def __init__(self, redirect_to_url: str):
         super().__init__(
             status_code=303,
@@ -24,20 +24,6 @@ class NotFoundException(CustomHTTPException):
             self, detail: str = "Запрашиваемый ресурс не найден.",
             company_id: int = None):
         super().__init__(status_code=404, detail=detail, company_id=company_id)
-
-
-class UnauthorizedException(CustomHTTPException):
-    def __init__(
-            self, detail: str = "У вас нет прав для доступа к этому ресурсу.",
-            company_id: int = None):
-        super().__init__(status_code=401, detail=detail, company_id=company_id)
-
-
-class ForbiddenException(CustomHTTPException):
-    def __init__(
-            self, detail: str = "У вас нет разрешения на выполнение этого действия.",
-            company_id: int = None):
-        super().__init__(status_code=403, detail=detail, company_id=company_id)
 
 
 class BadRequestException(CustomHTTPException):
@@ -73,20 +59,6 @@ class InternalServerErrorException(CustomHTTPException):
             self, detail: str = "Произошла неожиданная ошибка на сервере.",
             company_id: int = None):
         super().__init__(status_code=500, detail=detail, company_id=company_id)
-
-
-class TokenExpiredException(BadRequestException):
-    def __init__(
-            self, detail: str = "Авторизационный токен истек.",
-            company_id: int = None):
-        super().__init__(detail=detail, company_id=company_id)
-
-
-class InvalidTokenException(BadRequestException):
-    def __init__(
-            self, detail: str = "Недействительный токен авторизации.",
-            company_id: int = None):
-        super().__init__(detail=detail, company_id=company_id)
 
 
 class ValidationErrorException(BadRequestException):

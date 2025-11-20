@@ -15,8 +15,9 @@ from access_control import (
 
 from core.config import settings
 from core.db.dependencies import get_company_timezone
-from core.exceptions import check_is_none
 from core.templates.jinja_filters import format_datetime_tz
+from core.exceptions.api.common import NotFoundError
+
 
 from infrastructure.db import async_db_session, async_db_session_begin
 
@@ -140,8 +141,11 @@ async def api_update_team(
         )
     )).scalar_one_or_none()
 
-    await check_is_none(
-        team, type="Команда", id=team_id, company_id=company_id)
+    if not team:
+        raise NotFoundError(
+            company_id=company_id,
+            detail="Команда не найдена!"
+        )
 
     updated_fields = team_data.model_dump(exclude_unset=True)
     for key, value in updated_fields.items():

@@ -6,17 +6,19 @@ from fastapi import (
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.exceptions import check_is_none
-from core.config import settings
-
-from infrastructure.db import async_db_session_begin
-from models import EquipmentModel, EquipmentInfoModel
-from models.enums.equipment_info import EquipmentInfoType
-
 from access_control import (
     JwtData,
     check_include_in_active_company
 )
+
+from core.config import settings
+from core.exceptions.api.common import NotFoundError
+
+from infrastructure.db import async_db_session_begin
+
+from models import EquipmentModel, EquipmentInfoModel
+from models.enums.equipment_info import EquipmentInfoType
+
 from apps.company_app.schemas.equipment_informations import (
     EquipmentInfoCreate
 )
@@ -38,8 +40,8 @@ async def api_create_equipment_information(
 ):
     new_equipment = EquipmentInfoModel(
         type=type_verif,
-        verif_date=equipment_info_data.verif_date,
-        verif_limit_date=equipment_info_data.verif_limit_date,
+        date_from=equipment_info_data.date_from,
+        date_to=equipment_info_data.date_to,
         info=equipment_info_data.info,
         equipment_id=equipment_id,
     )
@@ -68,9 +70,11 @@ async def api_update_equipment_information(
         )
     ).scalar_one_or_none()
 
-    await check_is_none(
-        equipment_info, type="ТО и Поверка оборудования",
-        id=equipment_info_id, company_id=company_id)
+    if not equipment_info:
+        raise NotFoundError(
+            company_id=company_id,
+            detail="ТО и Поверка оборудования не найдена!"
+        )
 
     for key, value in equipment_info_data.model_dump().items():
         setattr(equipment_info, key, value)

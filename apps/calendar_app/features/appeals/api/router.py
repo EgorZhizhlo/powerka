@@ -1,10 +1,11 @@
 import math
 from fastapi import (
-    APIRouter, HTTPException, status as status_code,
+    APIRouter, status as status_code,
     Body, Query, Depends
 )
 
 from core.config import settings
+from core.exceptions.base import ApiHttpException
 
 from access_control import (
     JwtData,
@@ -37,7 +38,7 @@ async def api_appeals_list(
     appeal_service: AppealService = Depends(get_read_appeal_service),
 ):
     if appeal_status and appeal_status not in map_appeal_status_to_label:
-        raise HTTPException(
+        raise ApiHttpException(
             status_code=status_code.HTTP_400_BAD_REQUEST,
             detail=f"Фильтр статуса должен быть одним из: {
                 ', '.join(map_appeal_status_to_label.keys())}",

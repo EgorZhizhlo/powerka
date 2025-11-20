@@ -10,20 +10,19 @@ from models import (
     CompanyTariffState,
     CompanyModel
 )
-from apps.tariff_app.repositories.company_tariff_history import (
-    CompanyTariffHistoryRepository
-)
-from apps.tariff_app.repositories.company_tariff_state import (
-    CompanyTariffStateRepository
-)
-from apps.tariff_app.repositories.base_tariff import (
+
+from core.exceptions.api.common import NotFoundError
+
+from apps.tariff_app.repositories import (
+    CompanyTariffHistoryRepository,
+    CompanyTariffStateRepository,
     BaseTariffRepository
 )
-from apps.tariff_app.services.base_tariff import (
+from apps.tariff_app.services import (
     get_base_tariff_repository_read,
-    get_base_tariff_repository_write
+    get_base_tariff_repository_write,
+    tariff_cache
 )
-from apps.tariff_app.services.tariff_cache import tariff_cache
 from apps.tariff_app.schemas.company_tariff import (
     CompanyTariffAssign,
     CompanyTariffUpdate,
@@ -32,7 +31,6 @@ from apps.tariff_app.schemas.company_tariff import (
     CompanyTariffHistoryListResponse,
     CompanyTariffFullResponse
 )
-from core.exceptions import NotFoundException
 
 
 class CompanyTariffService:
@@ -198,8 +196,8 @@ class CompanyTariffService:
             data.base_tariff_id
         )
         if not base_tariff:
-            raise NotFoundException(
-                detail=f"Базовый тариф {data.base_tariff_id} не найден"
+            raise NotFoundError(
+                detail="Базовый тариф не найден!"
             )
 
         state = await self.state_repo.get_by_company(
@@ -336,8 +334,8 @@ class CompanyTariffService:
             company_id, for_update=True
         )
         if not state:
-            raise NotFoundException(
-                detail=f"У компании {company_id} нет активного тарифа"
+            raise NotFoundError(
+                detail="У компании нет активного тарифа!"
             )
 
         # Получаем текущую историю
@@ -433,7 +431,7 @@ class CompanyTariffService:
             final_max_orders
         )
 
-        state = await self.state_repo.update(state)
+        state = await self.state_repo.update_state(state)
 
         await self._sync_company_settings(
             company_id,
@@ -464,13 +462,13 @@ class CompanyTariffService:
             company_id, for_update=True
         )
         if not state:
-            raise NotFoundException(
-                detail=f"У компании {company_id} нет активного тарифа"
+            raise NotFoundError(
+                detail="У компании нет активного тарифа!"
             )
 
         await self.history_repo.deactivate_previous(company_id)
 
-        await self.state_repo.delete(company_id)
+        await self.state_repo.delete_state(company_id)
 
         await self._sync_company_settings(
             company_id,
@@ -491,14 +489,6 @@ class CompanyTariffService:
     ) -> bool:
         """
         Увеличить счётчик использования в БД и обновить кеш
-
-        Args:
-            company_id: ID компании
-            field: Поле для обновления (employees/verifications/orders)
-            delta: Изменение значения (по умолчанию +1)
-
-        Returns:
-            True если обновление прошло успешно
         """
         # Обновляем в БД
         kwargs = {field: delta}

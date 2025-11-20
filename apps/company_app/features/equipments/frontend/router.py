@@ -6,9 +6,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
-from core.exceptions import check_is_none
 from core.templates.template_manager import templates
-
+from core.exceptions.frontend.common import (
+    NotFoundError
+)
 
 from infrastructure.db import async_db_session
 from models import CompanyModel
@@ -108,9 +109,11 @@ async def view_copy_equipment(
     equipment = await equipment_repo.get_by_id(
         equipment_id, company_id, only_active=True
     )
-
-    await check_is_none(
-        equipment, type="Оборудование", id=equipment_id, company_id=company_id)
+    if not equipment:
+        raise NotFoundError(
+            company_id=company_id,
+            detail="Оборудование не найдено!"
+        )
 
     equipment_copy = SimpleNamespace(
         id=None,
@@ -182,8 +185,11 @@ async def view_update_equipment(
         company_id=company_id,
         only_active=True
     )
-    await check_is_none(
-        equipment, type="Оборудование", id=equipment_id, company_id=company_id)
+    if not equipment:
+        raise NotFoundError(
+            company_id=company_id,
+            detail="Оборудование не найдено!"
+        )
 
     val_equipment = EquipmentOut.model_validate(equipment)
 

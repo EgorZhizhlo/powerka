@@ -9,8 +9,8 @@ from access_control import (
 )
 
 from core.config import settings
-from core.exceptions import check_is_none
 from core.templates.template_manager import templates
+from core.exceptions.frontend.common import NotFoundError
 
 from infrastructure.db import async_db_session
 
@@ -70,11 +70,14 @@ async def view_update_city(
     user_data: JwtData = Depends(check_include_in_active_company),
     session: AsyncSession = Depends(async_db_session),
 ):
-    repo = CityRepository(session)
-    city = await repo.get_by_id(city_id, company_id)
+    city_repo = CityRepository(session)
+    city = await city_repo.get_by_id(city_id, company_id)
 
-    await check_is_none(
-        city, type="Населенный пункт", id=city_id, company_id=company_id)
+    if not city:
+        raise NotFoundError(
+            company_id=company_id,
+            detail="Населённый пункт не найден!"
+        )
 
     context = {
         "request": request,

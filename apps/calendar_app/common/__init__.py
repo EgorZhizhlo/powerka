@@ -12,11 +12,6 @@ from apps.calendar_app.common.slot_services import (
     reserve_slot,
     get_or_create_route_statistic,
 )
-from apps.calendar_app.common.tariff_order_service import (
-    check_order_limit_available,
-    increment_order_count,
-    decrement_order_count,
-)
 
 __all__ = [
     "ensure_no_duplicate_address",
@@ -29,7 +24,4 @@ __all__ = [
     "release_slot",
     "reserve_slot",
     "get_or_create_route_statistic",
-    "check_order_limit_available",
-    "increment_order_count",
-    "decrement_order_count",
 ]

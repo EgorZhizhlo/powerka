@@ -1,39 +1,43 @@
-from fastapi import APIRouter, HTTPException, Depends, Form, Cookie
-from fastapi.responses import RedirectResponse, JSONResponse
+from fastapi import APIRouter, HTTPException, Depends, Cookie
+from fastapi.responses import JSONResponse
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from werkzeug.security import check_password_hash
 
 from access_control.tokens import (
     verify_token, verify_untimed_token,
-    get_jwt_token_version, reset_jwt_token_version,
+    get_jwt_token_version,
     create_token, create_untimed_token,
 )
 from access_control.roles import (
     access_company
 )
 
-from apps.auth_app.repositories import EmployeeRepository, CompanyRepository
 from infrastructure.db import async_db_session
+
+from apps.auth_app.repositories import EmployeeRepository, CompanyRepository
+from apps.auth_app.schemas.auth import LoginRequestSchema
+
 from core.config import settings
+from core.exceptions.app.common import (
+    UnauthorizedError
+)
 
 
-auth_api_router = APIRouter(prefix="")
+auth_api_router = APIRouter(prefix="/auth/api")
 
 
 @auth_api_router.post("/login")
 async def login_user(
-    username: str = Form(...),
-    password: str = Form(...),
+    login_request: LoginRequestSchema = Depends(),
     session: AsyncSession = Depends(async_db_session),
 ):
     emp_repo = EmployeeRepository(session)
-    user = await emp_repo.get_active_by_username(username)
-    if not user or not check_password_hash(user.password, password):
-        raise HTTPException(
-            status_code=401,
-            detail="Вы ввели неверные учетные данные пользователя!"
-        )
+    user = await emp_repo.get_active_by_username(login_request.username)
+    if not user or not check_password_hash(
+        user.password, login_request.password
+    ):
+        raise UnauthorizedError
 
     await emp_repo.update_login_date(user.id)
 
@@ -43,7 +47,7 @@ async def login_user(
             "last_name": user.last_name,
             "name": user.name,
             "patronymic": user.patronymic,
-            "username": username,
+            "username": login_request.username,
             "status": user.status,
         }
     )
@@ -82,26 +86,6 @@ async def login_user(
     resp.set_cookie("auth_token", auth_token, **cookie_params)
     resp.set_cookie("company_info_token", company_info_token, **cookie_params)
     return resp
-
-
-@auth_api_router.get("/logout")
-async def logout_user(
-    auth_token: str = Cookie(None),
-):
-    if auth_token:
-        try:
-            data = verify_token(auth_token)
-            user_id = data["id"]
-            await reset_jwt_token_version(f"user:{user_id}:auth_version")
-            await reset_jwt_token_version(f"user:{user_id}:company_version")
-        except Exception:
-            pass
-
-    response = RedirectResponse(url="/", status_code=303)
-    for name in ("auth_token", "company_info_token"):
-        response.delete_cookie(name, path="/")
-
-    return response
 
 
 @auth_api_router.get("/vers")

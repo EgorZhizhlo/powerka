@@ -9,8 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
 from core.db.dependencies import get_company_timezone
-from core.exceptions import check_is_none
 from core.templates.jinja_filters import format_datetime_tz
+from core.exceptions.api.common import NotFoundError
 
 from infrastructure.db import async_db_session, async_db_session_begin
 from models import VerificationReportModel
@@ -105,8 +105,11 @@ async def api_get_verification_report(
         )
     ).scalar_one_or_none()
 
-    await check_is_none(
-        report, "Отчет поверки", verification_report_id, company_id)
+    if not report:
+        raise NotFoundError(
+            company_id=company_id,
+            detail="Настраиваемый отчет поверки не найден!"
+        )
 
     report_dict = VerificationReportDetail.model_validate(report).model_dump()
     report_dict["created_at_strftime_full"] = format_datetime_tz(
@@ -199,10 +202,11 @@ async def api_update_verification_report(
         )
     ).scalar_one_or_none()
 
-    await check_is_none(
-        report, type="Отчет",
-        id=verification_report_id, company_id=company_id
-    )
+    if not report:
+        raise NotFoundError(
+            company_id=company_id,
+            detail="Настраиваемый отчет поверки не найден!"
+        )
 
     fields_state = report_data.fields_state
     fields_order_str = ",".join(report_data.fields_order)
@@ -278,10 +282,11 @@ async def api_delete_verification_report(
         )
     )).scalar_one_or_none()
 
-    await check_is_none(
-        report, type="Отчет",
-        id=verification_report_id, company_id=company_id
-    )
+    if not report:
+        raise NotFoundError(
+            company_id=company_id,
+            detail="Настраиваемый отчет поверки не найден!"
+        )
 
     await session.delete(report)
     await session.flush()

@@ -16,8 +16,10 @@ from access_control import (
 
 from core.config import settings
 from core.db.dependencies import get_company_timezone
-from core.exceptions import CustomHTTPException, check_is_none
 from core.templates.jinja_filters import format_datetime_tz
+from core.exceptions.api.common import (
+    NotFoundError, BadRequestError
+)
 
 from infrastructure.db import async_db_session, async_db_session_begin
 
@@ -96,9 +98,7 @@ async def api_create_route(
                       RouteModel.company_id == company_id))
     )
     if exists_q.scalar_one():
-        raise CustomHTTPException(
-            company_id=company_id,
-            status_code=404,
+        raise BadRequestError(
             detail=f"Маршрут {route_data.name} уже существует!"
         )
 
@@ -130,9 +130,7 @@ async def api_update_route(
         )
     )
     if dup.scalar_one():
-        raise CustomHTTPException(
-            company_id=company_id,
-            status_code=404,
+        raise BadRequestError(
             detail=f"Маршрут {route_data.name} уже существует!"
         )
 
@@ -142,8 +140,11 @@ async def api_update_route(
             RouteModel.id == route_id,
             RouteModel.company_id == company_id)
     )).scalar_one_or_none()
-    await check_is_none(
-        route, type="Маршрут", id=route_id, company_id=company_id)
+
+    if not route:
+        raise NotFoundError(
+            detail="Маршрут не найден!"
+        )
 
     route_statistics = (
         await session.execute(
@@ -195,9 +196,11 @@ async def api_delete_route(
         )
     ).scalar_one_or_none()
 
-    await check_is_none(
-        route, type="Маршрут", id=route_id, company_id=company_id
-    )
+    if not route:
+        raise NotFoundError(
+            company_id=company_id,
+            detail="Маршрут не найден!"
+        )
 
     has_orders = bool(route.order)
 
@@ -228,9 +231,11 @@ async def api_restore_route(
                RouteModel.is_deleted.is_(True))
     )).scalar_one_or_none()
 
-    await check_is_none(
-        route, type="Маршрут", id=route_id, company_id=company_id
-    )
+    if not route:
+        raise NotFoundError(
+            company_id=company_id,
+            detail="Маршрут не найден!"
+        )
 
     route.is_deleted = False
 

@@ -38,12 +38,12 @@ async def check_equip_conditions(
 
         latest_info = max(
             verif_infos,
-            key=lambda x: x.verif_limit_date
+            key=lambda x: x.date_to
         )
 
         if (
-            latest_info.verif_limit_date is None
-            or latest_info.verif_limit_date < today
+            latest_info.date_to is None
+            or latest_info.date_to < today
         ):
             expired_equipment.append(
                 f"{equipment.name} (Зав. № {equipment.factory_number})"

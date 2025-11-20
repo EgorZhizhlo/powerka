@@ -1,7 +1,7 @@
 from typing import Optional
 from fastapi import Cookie
 
-from core.exceptions import ForbiddenException
+from core.exceptions.app.common import ForbiddenError
 
 from access_control.tokens import (
     JwtData,
@@ -25,7 +25,7 @@ async def check_tariff_access(
     user_data_status = user_data.get("status")
 
     if user_data_status not in access_tarif:
-        raise ForbiddenException(
+        raise ForbiddenError(
             detail=(
                 "Доступ к управлению тарифами "
                 "разрешен только администраторам"

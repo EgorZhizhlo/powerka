@@ -17,6 +17,7 @@ class EquipmentModel(BaseModel, TimeMixin):
     image = Column(LargeBinary, nullable=True)
     image2 = Column(LargeBinary, nullable=True)
     document_pdf = Column(LargeBinary, nullable=True)
+
     name = Column(String(80), nullable=False)
     full_name = Column(String(150), nullable=False)
     factory_number = Column(String(30), nullable=False)

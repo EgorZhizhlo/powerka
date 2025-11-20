@@ -3,8 +3,8 @@ from fastapi import APIRouter, Request, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
-from core.exceptions import check_is_none
 from core.templates.template_manager import templates
+from core.exceptions.frontend.common import NotFoundError
 
 from infrastructure.db import async_db_session
 
@@ -68,12 +68,14 @@ async def update_act_series(
     user_data: JwtData = Depends(check_include_in_active_company),
     session: AsyncSession = Depends(async_db_session),
 ):
-    repo = ActSeriesRepository(session)
-    act_series = await repo.get_by_id(act_series_id, company_id)
+    act_series_repo = ActSeriesRepository(session)
+    act_series = await act_series_repo.get_by_id(act_series_id, company_id)
 
-    await check_is_none(
-        act_series, type="Серия акта", id=act_series_id, company_id=company_id
-    )
+    if not act_series:
+        raise NotFoundError(
+            company_id=company_id,
+            detail="Серия бланка не найдена!"
+        )
 
     context = {
         "request": request,

@@ -2,7 +2,7 @@ from typing import List
 from itertools import groupby
 from datetime import date as date_
 from fastapi import (
-    APIRouter, HTTPException, status as status_code,
+    APIRouter, status as status_code,
     Body, Query, Depends
 )
 from sqlalchemy import delete, select
@@ -22,6 +22,10 @@ from models.associations import employees_cities, employees_routes
 
 from core.config import settings
 from core.utils.time_utils import datetime_utc_now
+from core.exceptions.api.common import (
+    NotFoundError, ForbiddenError,
+    BadRequestError, ConflictError
+)
 
 from infrastructure.db import async_db_session, async_db_session_begin
 
@@ -36,7 +40,10 @@ from apps.calendar_app.common import (
     ensure_no_duplicate_address, _assigned, lock_routes_advisory,
     release_slot, reserve_slot, get_or_create_route_statistic,
     get_calendar_order, get_route_key, sorting_key,
-    check_order_limit_available, increment_order_count,
+)
+from apps.calendar_app.services import (
+    check_order_limit_available,
+    increment_order_count,
     decrement_order_count,
 )
 
@@ -153,9 +160,8 @@ async def order_calendar(
     )
 
     if not order:
-        raise HTTPException(
-            status_code=status_code.HTTP_404_NOT_FOUND,
-            detail="Заявка не найдена"
+        raise NotFoundError(
+            detail="Календарная заявка не найдена!"
         )
 
     return CalendarOrderDetailResponse(
@@ -199,8 +205,7 @@ async def create_order_calendar(
     if employee_route_ids:
         employee_route_ids.append(None)
         if route_id not in employee_route_ids:
-            raise HTTPException(
-                status_code=status_code.HTTP_404_NOT_FOUND,
+            raise ForbiddenError(
                 detail="Доступ к данному маршруту запрещен!"
             )
 
@@ -211,8 +216,7 @@ async def create_order_calendar(
         )
     ).scalars().all()
     if employee_city_ids and city_id not in employee_city_ids:
-        raise HTTPException(
-            status_code=status_code.HTTP_404_NOT_FOUND,
+        raise ForbiddenError(
             detail="Доступ к данному городу запрещен!"
         )
 
@@ -221,9 +225,8 @@ async def create_order_calendar(
         try:
             await reserve_slot(session, route_id, order_date)
         except ValueError:
-            raise HTTPException(
-                status_code=status_code.HTTP_404_NOT_FOUND,
-                detail="Лимит заявок на этот маршрут исчерпан"
+            raise ConflictError(
+                detail="Лимит заявок на этот маршрут исчерпан!"
             )
 
     # Создаём заявку
@@ -269,9 +272,9 @@ async def create_order_calendar(
             title=f"Заявка №{new_order.id}",
             order=OrderSchema.model_validate(new_order)
         )
-    raise HTTPException(
-        status_code=status_code.HTTP_400_BAD_REQUEST,
-        detail="Заявка не была создана!")
+    raise BadRequestError(
+        detail="Заявка не была создана!"
+    )
 
 
 @orders_calendar_api_router.put(
@@ -296,9 +299,8 @@ async def update_order_calendar(
         for_update=True,
     )
     if not order:
-        raise HTTPException(
-            status_code=status_code.HTTP_404_NOT_FOUND,
-            detail="Заявка не найдена"
+        raise NotFoundError(
+            detail="Заявка не найдена!"
         )
 
     employee_route_ids = (
@@ -311,8 +313,7 @@ async def update_order_calendar(
         allowed = employee_route_ids[:]
         allowed.append(None)
         if form.route_id not in allowed:
-            raise HTTPException(
-                status_code=status_code.HTTP_404_NOT_FOUND,
+            raise ForbiddenError(
                 detail="Доступ к данному маршруту запрещен!"
             )
 
@@ -323,8 +324,7 @@ async def update_order_calendar(
         )
     ).scalars().all()
     if employee_city_ids and form.city_id not in employee_city_ids:
-        raise HTTPException(
-            status_code=status_code.HTTP_404_NOT_FOUND,
+        raise ForbiddenError(
             detail="Доступ к данному городу запрещен!"
         )
 
@@ -360,16 +360,14 @@ async def update_order_calendar(
 
     if old_pair != new_pair:
         if old_pair and await _assigned(*old_pair, session=session):
-            raise HTTPException(
-                status_code=status_code.HTTP_404_NOT_FOUND,
+            raise ConflictError(
                 detail="Нельзя изменить: на старую дату"
-                "есть назначенный сотрудник."
+                "есть назначенный сотрудник!"
             )
         if new_pair and await _assigned(*new_pair, session=session):
-            raise HTTPException(
-                status_code=status_code.HTTP_404_NOT_FOUND,
+            raise ConflictError(
                 detail="Нельзя изменить: на новую дату есть"
-                " назначенный сотрудник."
+                " назначенный сотрудник!"
             )
 
     pairs_to_lock = []
@@ -393,9 +391,8 @@ async def update_order_calendar(
                 session, new_route_id, new_date
             )
             if stat_new.day_limit_free <= 0:
-                raise HTTPException(
-                    status_code=status_code.HTTP_404_NOT_FOUND,
-                    detail="Лимит заявок на этот маршрут исчерпан"
+                raise ConflictError(
+                    detail="Лимит заявок на этот маршрут исчерпан!"
                 )
             stat_new.day_limit_free -= 1
 
@@ -412,9 +409,8 @@ async def update_order_calendar(
                     session, new_route_id, new_date
                 )
                 if stat_new.day_limit_free <= 0:
-                    raise HTTPException(
-                        status_code=status_code.HTTP_404_NOT_FOUND,
-                        detail="Лимит заявок на этот маршрут исчерпан"
+                    raise ConflictError(
+                        detail="Лимит заявок на этот маршрут исчерпан!"
                     )
                 stat_new.day_limit_free -= 1
 
@@ -500,9 +496,8 @@ async def delete_order_calendar(
             for_update=True,
         )
         if not order:
-            raise HTTPException(
-                status_code=status_code.HTTP_404_NOT_FOUND,
-                detail="Заявка не найдена"
+            raise NotFoundError(
+                detail="Заявка не найдена!"
             )
 
         if order.route_id is not None and order.date is not None:
@@ -543,9 +538,8 @@ async def reweight_order(
 ):
     unique_ids = set(data.ordered_ids)
     if len(unique_ids) != len(data.ordered_ids):
-        raise HTTPException(
-            status_code=status_code.HTTP_400_BAD_REQUEST,
-            detail="Список содержит повторяющиеся id."
+        raise BadRequestError(
+            detail="Список содержит повторяющиеся id заявок!"
         )
 
     employee_route_ids = (
@@ -570,18 +564,20 @@ async def reweight_order(
     orders = (await session.execute(base_q)).scalars().all()
 
     if len(orders) != len(data.ordered_ids):
-        raise HTTPException(
-            status_code=400,
-            detail="Некоторые заявки не найдены "
-                   "или не принадлежат компании."
+        raise BadRequestError(
+            detail=(
+                "Некоторые заявки не найдены "
+                "или не принадлежат компании!"
+            )
         )
 
     pairs = {(o.route_id, o.date) for o in orders}
     if len(pairs) != 1:
-        raise HTTPException(
-            status_code=400,
-            detail="Перестановка допустима только "
-                   "внутри одного маршрута и даты."
+        raise BadRequestError(
+            detail=(
+                "Перестановка допустима только "
+                "внутри одного маршрута и даты!"
+            )
         )
 
     route_id, the_date = next(iter(pairs))
@@ -597,10 +593,11 @@ async def reweight_order(
             )
         )
         if assigned:
-            raise HTTPException(
-                status_code=403,
-                detail="Перемещение заявок данного маршрута "
-                "невозможно: на дату есть назначенный сотрудник."
+            raise ConflictError(
+                detail=(
+                    "Перемещение заявок данного маршрута "
+                    "невозможно: на дату есть назначенный сотрудник!"
+                )
             )
 
     await session.execute(
@@ -647,8 +644,7 @@ async def move_order(
     )
 
     if not order:
-        raise HTTPException(
-            status_code=status_code.HTTP_404_NOT_FOUND,
+        raise NotFoundError(
             detail="Заявка не была найдена!"
         )
 
@@ -680,10 +676,9 @@ async def move_order(
                 )
             )
             if assigned_old:
-                raise HTTPException(
-                    tatus_code=status_code.HTTP_403_FORBIDDEN,
+                raise ConflictError(
                     detail="Перемещение заявок данного маршрута невозможно: "
-                           "на старую дату есть назначенный сотрудник."
+                           "на старую дату есть назначенный сотрудник!"
                 )
 
         assigned_new = await session.scalar(
@@ -694,10 +689,9 @@ async def move_order(
             )
         )
         if assigned_new:
-            raise HTTPException(
-                status_code=status_code.HTTP_403_FORBIDDEN,
+            raise ConflictError(
                 detail="Перемещение заявок данного маршрута невозможно:"
-                       " на новую дату есть назначенный сотрудник."
+                       " на новую дату есть назначенный сотрудник!"
             )
 
         # Advisory-локи на (route_id, old_date) и (route_id, new_date)
@@ -717,8 +711,7 @@ async def move_order(
         try:
             await reserve_slot(session, route_id, new_date)
         except ValueError:
-            raise HTTPException(
-                status_code=status_code.HTTP_400_BAD_REQUEST,
+            raise ConflictError(
                 detail=f"Недостаточно свободных мест на дату {
                     new_date.strftime("%d.%m.%Y,")
                 }."

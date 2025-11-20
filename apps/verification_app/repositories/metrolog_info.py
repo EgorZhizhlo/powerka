@@ -67,7 +67,7 @@ class MetrologInfoRepository:
                 .load_only(
                     EquipmentInfoModel.id,
                     EquipmentInfoModel.type,
-                    EquipmentInfoModel.verif_limit_date,
+                    EquipmentInfoModel.date_to,
                 ),
             )
             .where(
@@ -121,7 +121,7 @@ class MetrologInfoRepository:
                     .load_only(
                         EquipmentInfoModel.id,
                         EquipmentInfoModel.type,
-                        EquipmentInfoModel.verif_limit_date,
+                        EquipmentInfoModel.date_to,
                     ),
                     joinedload(VerificationEntryModel.reason)
                     .load_only(
@@ -180,7 +180,7 @@ class MetrologInfoRepository:
                     .load_only(
                         EquipmentInfoModel.id,
                         EquipmentInfoModel.type,
-                        EquipmentInfoModel.verif_limit_date,
+                        EquipmentInfoModel.date_to,
                     ),
                     joinedload(VerificationEntryModel.reason)
                     .load_only(

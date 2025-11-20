@@ -53,10 +53,8 @@ from apps.verification_app.common import (
     act_number_for_update, apply_verifier_log_delta,
 
     clear_verification_cache,
-    check_verification_limit_available,
-    increment_verification_count,
-    decrement_verification_count
 )
+
 from apps.verification_app.repositories import (
     EmployeeCitiesRepository, read_employee_cities_repository,
     CompanyRepository, read_company_repository,
@@ -68,7 +66,13 @@ from apps.verification_app.repositories import (
     LocationRepository, action_location_repository,
     VerificationLogRepository, action_verification_log_repository,
 )
-from apps.verification_app.services import process_act_number_photos
+from apps.verification_app.services import (
+    process_act_number_photos,
+
+    check_verification_limit_available,
+    increment_verification_count,
+    decrement_verification_count
+)
 from apps.verification_app.schemas.verifications_control import (
     VerificationEntryFilter, VerificationEntryListOut, VerificationEntryOut,
     CreateVerificationEntryForm, UpdateVerificationEntryForm,
@@ -79,7 +83,6 @@ from apps.verification_app.schemas.verifications_control import (
 verifications_control_api_router = APIRouter(
     prefix='/api/verifications-control')
 VER_PHOTO_LIMIT: int = settings.image_limit_per_verification
-ALLOWED_PHOTO_EXT: set[str] = settings.allowed_photo_ext
 
 
 @verifications_control_api_router.get(

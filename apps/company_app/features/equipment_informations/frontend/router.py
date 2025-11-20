@@ -4,11 +4,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.exceptions import check_is_none
 from core.config import settings
 from core.templates.template_manager import templates
+from core.exceptions.frontend.common import NotFoundError
 
 from infrastructure.db import async_db_session
+
 from models import EquipmentModel, EquipmentInfoModel
 from models.enums.equipment_info import EquipmentInfoType
 
@@ -47,8 +48,11 @@ async def view_equipment_informations(
         )
     ).scalar_one_or_none()
 
-    await check_is_none(
-        equipment, type="Оборудование", id=equipment_id, company_id=company_id)
+    if not equipment:
+        raise NotFoundError(
+            company_id=company_id,
+            detail="Оборудование не найдено!"
+        )
 
     context = {
         "request": request,
@@ -115,10 +119,11 @@ async def view_update_equipment_information(
         )
     ).scalar_one_or_none()
 
-    await check_is_none(
-        equipment_info, type="ТО и Поверка оборудования",
-        id=equipment_info_id, company_id=company_id
-    )
+    if not equipment_info:
+        raise NotFoundError(
+            company_id=company_id,
+            detail="ТО и Поверка оборудования не найдена!"
+        )
 
     context = {
         "request": request,

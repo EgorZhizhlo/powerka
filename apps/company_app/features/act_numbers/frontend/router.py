@@ -11,8 +11,8 @@ from access_control import (
 from infrastructure.db import async_db_session
 
 from core.config import settings
-from core.exceptions import check_is_none
 from core.templates.template_manager import templates
+from core.exceptions.frontend.common import NotFoundError
 
 from apps.company_app.common import make_context
 from apps.company_app.repositories import (
@@ -89,12 +89,12 @@ async def view_update_act_number(
     act_number_entry = await act_number_repo.get_by_id(
         act_number_id, company_id
     )
-    await check_is_none(
-        act_number_entry,
-        type="Номер акта",
-        id=act_number_id,
-        company_id=company_id
-    )
+
+    if not act_number_entry:
+        raise NotFoundError(
+            company_id=company_id,
+            detail="Номер акта не найден!"
+        )
 
     context = {
         "request": request,

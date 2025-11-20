@@ -1,8 +1,6 @@
-from fastapi import (
-    APIRouter, HTTPException, Query, Depends)
+from fastapi import APIRouter, Query, Depends
 from fastapi.responses import StreamingResponse
 
-from infrastructure.db import async_db_session_begin
 from models import EquipmentModel, CompanyActivityModel
 
 from access_control import (
@@ -15,10 +13,15 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.company_app.common import create_table_report
+
+from infrastructure.db import async_db_session_begin
+
 from urllib.parse import quote
+
 from core.templates.jinja_filters import get_current_date_in_tz
 from core.cache.company_timezone_cache import company_tz_cache
 from core.config import settings
+from core.exceptions.frontend.common import InternalServerError
 
 
 form2_api_router = APIRouter(
@@ -49,7 +52,7 @@ def format_accuracy(value: str | None) -> str:
 def build_equipment_row(eq: EquipmentModel) -> dict:
     verification_infos = [i for i in eq.equipment_info if i.type == "verification"]
     last_info = (
-        max(verification_infos, key=lambda i: i.verif_limit_date)
+        max(verification_infos, key=lambda i: i.date_to)
         if verification_infos else None
     )
 
@@ -71,8 +74,8 @@ def build_equipment_row(eq: EquipmentModel) -> dict:
         "range": format_range(eq.measurement_range),
         "accuracy": format_accuracy(eq.error_or_uncertainty),
         "certificate": (
-            f"Свидетельство о поверке {last_info.info} от {format_date(last_info.verif_date)}"
-            if last_info and last_info.verif_date else ""
+            f"Свидетельство о поверке {last_info.info} от {format_date(last_info.date_from)}"
+            if last_info and last_info.date_from else ""
         ),
         "ownership": eq.ownership_document or "",
         "location": eq.storage_place or "",
@@ -133,4 +136,7 @@ async def get_autodocument_form2_report(
         )
 
     except Exception as e:
-        raise HTTPException(500, f"Не удалось сформировать отчёт: {e}")
+        raise InternalServerError(
+            detail=f"Не удалось сформировать отчёт: {e}",
+            company_id=company_id
+        )
