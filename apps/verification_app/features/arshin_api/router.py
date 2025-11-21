@@ -1,11 +1,14 @@
 import aiohttp
 import asyncio
+from aiohttp_socks import ProxyConnector
 from datetime import date as date_
 from typing import Dict, List, Tuple, Any
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select, or_, func
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from core.config import settings
 
 from models import VerificationEntryModel, CompanyModel
 from infrastructure.db import async_db_session_begin
@@ -162,8 +165,10 @@ async def get_vri_ids(
     db: AsyncSession = Depends(async_db_session_begin),
     user_data: JwtData = Depends(auditor_verifier_exception),
 ):
-
-    connector = aiohttp.TCPConnector(limit=AIOHTTP_LIMIT)
+    connector = ProxyConnector.from_url(
+        settings.proxy_url,
+        limit=AIOHTTP_LIMIT,
+    )
     timeout = aiohttp.ClientTimeout(total=AIOHTTP_TIMEOUT)
 
     async with aiohttp.ClientSession(

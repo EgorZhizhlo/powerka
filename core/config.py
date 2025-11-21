@@ -38,6 +38,8 @@ class Settings(BaseSettings):
     # === Redis ===
     redis_url: str
 
+    proxy_url: str
+
     # === Секреты и креды ===
     secret_key: str
     salt: str
