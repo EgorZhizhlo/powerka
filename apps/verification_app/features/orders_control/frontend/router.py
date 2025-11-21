@@ -4,9 +4,9 @@ from fastapi.templating import Jinja2Templates
 
 from core.config import settings
 from core.db.dependencies import get_company_timezone
-from core.exceptions import (
-    CustomHTTPException,
-    CustomCreateVerifDefaultVerifierException,
+from core.exceptions.frontend import (
+    NotFoundError,
+    FrontendCreateVerifDefaultVerifierError
 )
 
 from access_control import (
@@ -117,7 +117,7 @@ async def create_verification_entry_by_order_page(
     )
 
     if not default_verifier:
-        raise CustomCreateVerifDefaultVerifierException(
+        raise FrontendCreateVerifDefaultVerifierError(
             company_id=company_id
         )
 
@@ -141,8 +141,7 @@ async def create_verification_entry_by_order_page(
     order = await order_repo.get_order_by_id(order_id=order_id)
 
     if not order:
-        raise CustomHTTPException(
-            status_code=404,
+        raise NotFoundError(
             detail="Заявка не найден или не принадлежит данной компании!",
             company_id=company_id,
         )

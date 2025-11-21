@@ -58,7 +58,10 @@ class ConflictError(FrontendHttpException):
 class InternalServerError(FrontendHttpException):
     def __init__(
         self,
-        detail: str = "Внутренняя ошибка сервера. Пожалуйста, попробуйте позже.",
+        detail: str = (
+            "Внутренняя ошибка сервера. "
+            "Пожалуйста, попробуйте позже."
+        ),
         company_id: int = None
     ):
         super().__init__(

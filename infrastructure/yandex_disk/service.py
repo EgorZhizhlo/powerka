@@ -3,11 +3,16 @@ import tempfile
 import asyncio
 from typing import List
 from datetime import date
-from fastapi import UploadFile, HTTPException
+from fastapi import UploadFile
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 
 from core.config import settings
+from core.exceptions.api import (
+    BadRequestError,
+    NotFoundError,
+    ConflictError
+)
 
 from infrastructure.yandex_disk.client import YandexDiskClient
 from infrastructure.yandex_disk.schemas import OperationMetadata
@@ -101,10 +106,11 @@ class YandexDiskService:
     def _validate_image(self, file: UploadFile) -> None:
         """Валидация типа файла изображения."""
         if file.content_type not in settings.allowed_image_formats:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Недопустимый формат: {file.content_type}. "
-                f"Разрешены: {', '.join(settings.allowed_image_formats)}"
+            raise BadRequestError(
+                detail=(
+                    f"Недопустимый формат: {file.content_type}. "
+                    f"Разрешены: {', '.join(settings.allowed_image_formats)}!"
+                )
             )
 
     async def _validate_file_size(self, file: UploadFile) -> None:
@@ -119,10 +125,11 @@ class YandexDiskService:
         if file_size > settings.image_max_size_mb:
             size_mb = file_size / (1024 * 1024)
             max_mb = settings.image_max_size_mb / (1024 * 1024)
-            raise HTTPException(
-                status_code=400,
-                detail=f"Файл '{file.filename}' слишком большой: "
-                f"{size_mb:.2f} МБ. Максимум: {max_mb:.0f} МБ"
+            raise BadRequestError(
+                detail=(
+                    f"Файл '{file.filename}' слишком большой: "
+                    f"{size_mb:.2f} МБ. Максимум: {max_mb:.0f} МБ!"
+                )
             )
 
     @staticmethod
@@ -152,9 +159,8 @@ class YandexDiskService:
         old_path = self._build_path_from_metadata(metadata)
 
         if not await self.client.folder_exists(old_path):
-            raise HTTPException(
-                status_code=404,
-                detail=f"Ресурс не найден: {old_path}"
+            raise NotFoundError(
+                detail=f"Ресурс не найден: {old_path}!"
             )
 
         # Определяем какой компонент переименовываем
@@ -167,9 +173,8 @@ class YandexDiskService:
         ])
 
         if rename_count != 1:
-            raise HTTPException(
-                status_code=400,
-                detail="Укажите ровно один компонент для переименования"
+            raise BadRequestError(
+                detail="Укажите ровно один компонент для переименования!"
             )
 
         # Строим новый путь
@@ -230,9 +235,8 @@ class YandexDiskService:
         path = self._build_path_from_metadata(metadata)
 
         if not await self.client.folder_exists(path):
-            raise HTTPException(
-                status_code=404,
-                detail=f"Ресурс не найден: {path}"
+            raise NotFoundError(
+                detail=f"Ресурс не найден: {path}!"
             )
 
         await self.client.delete(path, permanently=permanently)
@@ -351,9 +355,11 @@ class YandexDiskService:
 
         # Валидация количества файлов
         if len(files) > settings.image_limit_per_verification:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Максимальное количество файлов: {settings.image_limit_per_verification}"
+            raise BadRequestError(
+                detail=(
+                    f"Максимальное количество файлов: "
+                    f"{settings.image_limit_per_verification}!"
+                )
             )
 
         for file in files:
@@ -371,8 +377,7 @@ class YandexDiskService:
         free_slots = sorted(all_slots - occupied)
 
         if len(free_slots) < len(files):
-            raise HTTPException(
-                status_code=400,
+            raise ConflictError(
                 detail=f"В папке уже {len(occupied)} файлов. "
                 f"Максимум {settings.image_limit_per_verification} файлов на папку. "
                 f"Можно загрузить ещё {len(free_slots)}."

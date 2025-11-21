@@ -45,3 +45,14 @@ class ConflictError(ApiHttpException):
             status_code=status_codes.HTTP_409_CONFLICT,
             detail=detail,
         )
+
+
+class BadGatewayError(ApiHttpException):
+    def __init__(
+        self,
+        detail: str,
+    ):
+        super().__init__(
+            status_code=status_codes.HTTP_502_BAD_GATEWAY,
+            detail=detail,
+        )

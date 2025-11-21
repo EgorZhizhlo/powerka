@@ -4,7 +4,8 @@ from fastapi.templating import Jinja2Templates
 from access_control import JwtData, auditor_verifier_exception
 
 from core.config import settings
-from core.exceptions import InternalServerErrorException
+from core.exceptions.frontend import InternalServerError
+
 
 from apps.verification_app.repositories import (
     CompanyRepository, read_company_repository,
@@ -73,8 +74,11 @@ async def act_number_report_view(
             "reports/act_numbers.html",
             context
         )
-    except Exception:
-        raise InternalServerErrorException(company_id=company_id)
+    except Exception as ex:
+        raise InternalServerError(
+            detail=str(ex),
+            company_id=company_id
+        )
 
 
 @reports_frontend_router.get("/employees")
@@ -119,8 +123,11 @@ async def employees_report_view(
         return templates.TemplateResponse(
             "reports/employees.html", context
         )
-    except Exception:
-        raise InternalServerErrorException(company_id=company_id)
+    except Exception as ex:
+        raise InternalServerError(
+            detail=str(ex),
+            company_id=company_id
+        )
 
 
 @reports_frontend_router.get("/cities")
@@ -166,5 +173,8 @@ async def cities_report_view(
         return templates.TemplateResponse(
             "reports/cities.html", context
         )
-    except Exception:
-        raise InternalServerErrorException(company_id=company_id)
+    except Exception as ex:
+        raise InternalServerError(
+            detail=str(ex),
+            company_id=company_id
+        )

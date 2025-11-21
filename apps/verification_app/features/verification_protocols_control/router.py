@@ -4,7 +4,7 @@ import zipfile
 import asyncio
 import os
 import threading
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
 from fastapi.templating import Jinja2Templates
 
@@ -20,7 +20,8 @@ from core.db.dependencies import get_company_timezone
 from core.utils.cpu_bounds_runner import run_cpu_bounds_task
 from core.exceptions.frontend import (
     FrontendVerificationVerifierError,
-    FrontendVerifProtocolAccessError
+    FrontendVerifProtocolAccessError,
+    BadRequestError,
 )
 
 from apps.verification_app.common import (
@@ -125,9 +126,8 @@ async def zip_pdf_verifications_protocol(
             _zip_generation_locks[company_id] = lock
 
     if lock.locked():
-        raise HTTPException(
-            status_code=429,
-            detail="Выгрузка этой компании уже выполняется, попробуйте позже."
+        raise BadRequestError(
+            detail="Выгрузка этой компании уже выполняется, попробуйте позже!"
         )
 
     async def generate_zip_stream():

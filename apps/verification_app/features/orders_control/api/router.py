@@ -2,7 +2,7 @@ import math
 import json
 from typing import List
 from fastapi import (
-    APIRouter, Response, HTTPException, UploadFile,
+    APIRouter, Response, UploadFile,
     Depends, Body, Query, File, Form
 )
 from fastapi import status as status_code
@@ -30,8 +30,10 @@ from access_control import (
 from core.config import settings
 from core.db.dependencies import get_company_timezone
 from core.utils.time_utils import validate_company_timezone
-from core.exceptions import (
-    CustomHTTPException
+from core.exceptions.api import (
+    BadRequestError,
+    NotFoundError,
+    ForbiddenError
 )
 
 from apps.verification_app.schemas.orders_control import (
@@ -113,11 +115,10 @@ async def get_orders(
     )
 
     if order_filter.page > total_pages and total_count > 0:
-        raise HTTPException(
-            status_code=400,
+        raise BadRequestError(
             detail=(
                 f"Страница {order_filter.page} выходит за пределы "
-                f"(макс. {total_pages})"
+                f"(макс. {total_pages})!"
             )
         )
 
@@ -165,10 +166,8 @@ async def create_counter_assignment(
 
     order = await session.get(OrderModel, payload.order_id)
     if not order or order.company_id != company_id:
-        raise CustomHTTPException(
-            status_code=400,
-            company_id=company_id,
-            detail="Заказ не найден или не принадлежит этой компании"
+        raise NotFoundError(
+            detail="Заказ не найден или не принадлежит этой компании!"
         )
 
     counter_assignment = await session.execute(
@@ -180,10 +179,8 @@ async def create_counter_assignment(
         .values(counter_limit=CounterAssignmentModel.counter_limit + 1)
     )
     if counter_assignment.rowcount == 0:
-        raise CustomHTTPException(
-            status_code=400,
-            company_id=company_id,
-            detail="Добавление новой записи невозможно"
+        raise BadRequestError(
+            detail="Добавление новой записи невозможно!"
         )
 
     updated = (
@@ -220,25 +217,19 @@ async def delete_counter_assignment(
         CounterAssignmentModel, counter_assignment_id
     )
     if not assignment:
-        raise CustomHTTPException(
-            status_code=404,
-            company_id=company_id,
+        raise NotFoundError(
             detail="Запись не найдена!"
         )
 
     if assignment.employee_id != employee_id:
-        raise CustomHTTPException(
-            status_code=403,
-            company_id=company_id,
+        raise ForbiddenError(
             detail="Нельзя удалять чужую запись!"
         )
 
     order_obj = await session.get(OrderModel, assignment.order_id)
     if not order_obj or order_obj.company_id != company_id:
-        raise CustomHTTPException(
-            status_code=400,
-            company_id=company_id,
-            detail="Несовпадение компании у заказа"
+        raise BadRequestError(
+            detail="Несовпадение компании у заказа!"
         )
 
     entry_line = f"* Удаление счётчика (Причина: {additional})\n"
@@ -306,7 +297,9 @@ async def create_verification_entry_by_order(
         data = json.loads(verification_entry_data_raw)
         verification_entry_data = CreateVerificationEntryForm(**data)
     except Exception as e:
-        raise HTTPException(400, f"Некорректный запрос. Ошибка: {e}")
+        raise BadRequestError(
+            detail=f"Некорректный запрос. Ошибка: {e}"
+        )
 
     validate_company_timezone(
         verification_entry_data.company_tz,

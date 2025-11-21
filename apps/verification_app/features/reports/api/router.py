@@ -24,8 +24,12 @@ from core.reports import autofit_columns, create_report_route_orders_list
 from core.templates.jinja_filters import get_current_date_in_tz
 from core.cache.company_timezone_cache import company_tz_cache
 from core.utils.cpu_bounds_runner import run_cpu_bounds_task
-from core.exceptions import (
-    InternalServerErrorException, CustomHTTPException
+from core.exceptions.frontend import (
+    InternalServerError,
+    BadRequestError,
+    NotFoundError,
+    ConflictError,
+    ForbiddenError,
 )
 
 from models import (
@@ -375,59 +379,66 @@ async def xlsx_full_report(
     Генерирует полный отчет по поверкам в формате Excel.
     Все операции с БД инкапсулированы в репозиторий.
     """
-    company_tz = await company_tz_cache.get_timezone(company_id)
+    try:
+        company_tz = await company_tz_cache.get_timezone(company_id)
 
-    verification_entries = await report_repo.get_full_report_entries(
-        full_report_data
-    )
-
-    if not verification_entries:
-        raise CustomHTTPException(
-            status_code=400,
-            company_id=company_id,
-            detail="Нет данных для генерации отчета. "
-                   "Проверьте параметры фильтрации."
+        verification_entries = await report_repo.get_full_report_entries(
+            full_report_data
         )
 
-    company_additional = await report_repo.get_company_additional_fields()
+        if not verification_entries:
+            raise BadRequestError(
+                company_id=company_id,
+                detail=(
+                    "Нет данных для генерации отчета. "
+                    "Проверьте параметры фильтрации."
+                )
+            )
 
-    serialized_entries = await serialize_full_report_entries(
-        verification_entries
-    )
+        company_additional = await report_repo.get_company_additional_fields()
 
-    company_additional_dict = {
-        k: getattr(company_additional, k, None)
-        for k in dir(company_additional)
-        if not k.startswith('_')
-    }
+        serialized_entries = await serialize_full_report_entries(
+            verification_entries
+        )
 
-    full_df = await run_cpu_bounds_task(
-        create_full_df, serialized_entries, company_additional_dict, company_tz
-    )
-
-    buffer = BytesIO()
-    writer = pd.ExcelWriter(buffer, engine='xlsxwriter')
-    full_df.to_excel(
-        writer, sheet_name='Общий отчет компании', index=False
-    )
-
-    autofit_columns(writer, full_df, 'Общий отчет компании')
-
-    writer.close()
-    buffer.seek(0)
-    current_date = get_current_date_in_tz(company_tz)
-    filename = f"Общий отчет компании от {
-        current_date.strftime('%d-%m-%Y')}.xlsx"
-    encoded_filename = quote(filename)
-    return StreamingResponse(
-        buffer,
-        media_type="application/"
-        "vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={
-            "Content-Disposition":
-            f"inline; filename*=utf-8''{encoded_filename}"
+        company_additional_dict = {
+            k: getattr(company_additional, k, None)
+            for k in dir(company_additional)
+            if not k.startswith('_')
         }
-    )
+
+        full_df = await run_cpu_bounds_task(
+            create_full_df, serialized_entries, company_additional_dict, company_tz
+        )
+
+        buffer = BytesIO()
+        writer = pd.ExcelWriter(buffer, engine='xlsxwriter')
+        full_df.to_excel(
+            writer, sheet_name='Общий отчет компании', index=False
+        )
+
+        autofit_columns(writer, full_df, 'Общий отчет компании')
+
+        writer.close()
+        buffer.seek(0)
+        current_date = get_current_date_in_tz(company_tz)
+        filename = f"Общий отчет компании от {
+            current_date.strftime('%d-%m-%Y')}.xlsx"
+        encoded_filename = quote(filename)
+        return StreamingResponse(
+            buffer,
+            media_type="application/"
+            "vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={
+                "Content-Disposition":
+                f"inline; filename*=utf-8''{encoded_filename}"
+            }
+        )
+    except Exception as ex:
+        raise InternalServerError(
+            detail=str(ex),
+            company_id=company_id
+        )
 
 
 async def serialize_dynamic_report_entries(entries):
@@ -599,108 +610,115 @@ async def xlsx_dynamic_report(
     Генерирует динамический (настраиваемый) отчет.
     Загружает только те поля из БД, которые указаны в конфигурации отчета.
     """
-    company_tz = await company_tz_cache.get_timezone(company_id)
+    try:
+        company_tz = await company_tz_cache.get_timezone(company_id)
 
-    status = employee_data.status
-    empl_id = employee_data.id
+        status = employee_data.status
+        empl_id = employee_data.id
 
-    verification_report = await report_repo.get_dynamic_report_config(report_id)
-    if not verification_report:
-        raise CustomHTTPException(
-            status_code=400,
-            company_id=company_id,
-            detail="Выбранный отчет отсутствует в компании."
+        verification_report = await report_repo.get_dynamic_report_config(
+            report_id
+        )
+        if not verification_report:
+            raise NotFoundError(
+                company_id=company_id,
+                detail="Выбранный отчет отсутствует в компании!"
+            )
+
+        if status == EmployeeStatus.verifier:
+            if not verification_report.for_verifier:
+                raise ForbiddenError(
+                    company_id=company_id,
+                    detail=(
+                        "В доступе к отчету отказано. "
+                        "Вы не обладаете необходимым доступом."
+                    )
+                )
+            employee_filter_id = empl_id
+        elif status == EmployeeStatus.auditor:
+            if not verification_report.for_auditor:
+                raise ForbiddenError(
+                    company_id=company_id,
+                    detail=(
+                        "В доступе к отчету отказано. "
+                        "Вы не обладаете необходимым доступом."
+                    )
+                )
+            employee_filter_id = None
+        else:
+            employee_filter_id = None
+
+        company_additional = await report_repo.get_company_additional_fields()
+
+        information_entries = await report_repo.get_dynamic_report_entries(
+            report_config=verification_report,
+            filter_data=dynamic_report_data,
+            employee_filter_id=employee_filter_id
         )
 
-    if status == EmployeeStatus.verifier:
-        if not verification_report.for_verifier:
-            raise CustomHTTPException(
+        if not information_entries:
+            raise NotFoundError(
                 status_code=400,
                 company_id=company_id,
-                detail="В доступе к отчету отказано. "
-                       "Вы не обладаете необходимым доступом."
+                detail=(
+                    "Нет данных для генерации отчета. "
+                    "Проверьте параметры фильтрации."
+                )
             )
-        employee_filter_id = empl_id
-    elif status == EmployeeStatus.auditor:
-        if not verification_report.for_auditor:
-            raise CustomHTTPException(
-                status_code=400,
+
+        if not verification_report.fields_order:
+            raise BadRequestError(
                 company_id=company_id,
-                detail="В доступе к отчету отказано. "
-                       "Вы не обладаете необходимым доступом."
+                detail="Отчет не содержит полей!"
             )
-        employee_filter_id = None
-    else:
-        employee_filter_id = None
 
-    company_additional = await report_repo.get_company_additional_fields()
+        field_list = [
+            f.strip() for f in verification_report.fields_order.split(',')
+            if f.strip()
+        ]
 
-    information_entries = await report_repo.get_dynamic_report_entries(
-        report_config=verification_report,
-        filter_data=dynamic_report_data,
-        employee_filter_id=employee_filter_id
-    )
+        if not field_list:
+            raise BadRequestError(
+                company_id=company_id,
+                detail="Отчет не содержит полей!"
+            )
 
-    if not information_entries:
-        raise CustomHTTPException(
-            status_code=400,
-            company_id=company_id,
-            detail="Нет данных для генерации отчета. "
-                   "Проверьте параметры фильтрации."
+        serialized_entries = await serialize_dynamic_report_entries(
+            information_entries
         )
 
-    if not verification_report.fields_order:
-        raise CustomHTTPException(
-            status_code=400,
-            company_id=company_id,
-            detail=f"Отчет не содержит полей. "
-            f"fields_order={verification_report.fields_order}"
+        dynamic_df = await run_cpu_bounds_task(
+            create_dynamic_df, serialized_entries, field_list,
+            company_additional
         )
 
-    field_list = [
-        f.strip() for f in verification_report.fields_order.split(',')
-        if f.strip()
-    ]
-
-    if not field_list:
-        raise CustomHTTPException(
-            status_code=400,
-            company_id=company_id,
-            detail=f"После парсинга список пуст. "
-            f"Исходное: {verification_report.fields_order}"
+        buffer = BytesIO()
+        writer = pd.ExcelWriter(buffer, engine="xlsxwriter")
+        dynamic_df.to_excel(
+            writer, sheet_name="Настраиваемый отчет компании", index=False
         )
+        autofit_columns(writer, dynamic_df, "Настраиваемый отчет компании")
 
-    serialized_entries = await serialize_dynamic_report_entries(
-        information_entries
-    )
-
-    dynamic_df = await run_cpu_bounds_task(
-        create_dynamic_df, serialized_entries, field_list,
-        company_additional
-    )
-
-    buffer = BytesIO()
-    writer = pd.ExcelWriter(buffer, engine="xlsxwriter")
-    dynamic_df.to_excel(
-        writer, sheet_name="Настраиваемый отчет компании", index=False
-    )
-    autofit_columns(writer, dynamic_df, "Настраиваемый отчет компании")
-
-    writer.close()
-    buffer.seek(0)
-    current_date = get_current_date_in_tz(company_tz)
-    filename = f"Отчет {verification_report.name} от {
-        current_date.strftime('%d-%m-%Y')}.xlsx"
-    encoded_filename = quote(filename)
-    return StreamingResponse(
-        buffer,
-        media_type="application/"
-        "vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={
-            "Content-Disposition":
-            f"inline; filename*=utf-8''{encoded_filename}"
-        }
-    )
+        writer.close()
+        buffer.seek(0)
+        current_date = get_current_date_in_tz(company_tz)
+        filename = f"Отчет {verification_report.name} от {
+            current_date.strftime('%d-%m-%Y')}.xlsx"
+        encoded_filename = quote(filename)
+        return StreamingResponse(
+            buffer,
+            media_type="application/"
+            "vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={
+                "Content-Disposition":
+                f"inline; filename*=utf-8''{encoded_filename}"
+            }
+        )
+    except Exception as ex:
+        raise InternalServerError(
+            detail=str(ex),
+            company_id=company_id
+        )
 
 
 async def serialize_equipment_statistics_entries(entries):
@@ -831,8 +849,11 @@ async def xslx_standart_equipment_statistic_report(
                 f"attachment; filename*=utf-8''{encoded_filename}"
             }
         )
-    except Exception:
-        raise InternalServerErrorException(company_id=company_id)
+    except Exception as ex:
+        raise InternalServerError(
+            detail=str(ex),
+            company_id=company_id
+        )
 
 
 def prepare_fund_report_data(entries):
@@ -938,8 +959,11 @@ async def xml_fund_report(
                 )
             }
         )
-    except Exception:
-        raise InternalServerErrorException(company_id=company_id)
+    except Exception as ex:
+        raise InternalServerError(
+            detail=str(ex),
+            company_id=company_id
+        )
 
 
 def prepare_ra_report_data(entries):
@@ -1063,9 +1087,8 @@ async def xml_ra_report(
     """
     Генерирует XML отчет для РА (Росаккредитация).
     """
-    company_tz = await company_tz_cache.get_timezone(company_id)
-
     try:
+        company_tz = await company_tz_cache.get_timezone(company_id)
         entries = await report_repo.get_ra_report_entries(ra_report_data)
 
         current_date = get_current_date_in_tz(company_tz)
@@ -1093,8 +1116,11 @@ async def xml_ra_report(
                 )
             }
         )
-    except Exception:
-        raise InternalServerErrorException(company_id=company_id)
+    except Exception as ex:
+        raise InternalServerError(
+            detail=str(ex),
+            company_id=company_id
+        )
 
 
 @reports_api_router.post("/fund/")
@@ -1156,8 +1182,11 @@ async def xlsx_upload_fund_report(
             )
 
         await session.flush()
-    except Exception:
-        raise InternalServerErrorException(company_id=company_id)
+    except Exception as ex:
+        raise InternalServerError(
+            detail=str(ex),
+            company_id=company_id
+        )
 
 
 async def serialize_act_numbers_data(act_numbers, act_series):
@@ -1233,9 +1262,8 @@ async def xlsx_act_number_report(
     try:
         if (not report_act_number_data.act_number_from or
                 not report_act_number_data.act_number_to):
-            raise CustomHTTPException(
+            raise BadRequestError(
                 company_id=company_id,
-                status_code=400,
                 detail="Диапазон был указан неверно!"
             )
 
@@ -1292,8 +1320,11 @@ async def xlsx_act_number_report(
                 )
             }
         )
-    except Exception:
-        raise InternalServerErrorException(company_id=company_id)
+    except Exception as ex:
+        raise InternalServerError(
+            detail=str(ex),
+            company_id=company_id
+        )
 
 
 @reports_api_router.get("/orders-sheet/")
@@ -1305,90 +1336,97 @@ async def xlsx_orders_sheet_report(
         check_access_verification
     ),
 ):
-    employee_id = employee_data.id
-    parts = (
-        employee_data.last_name,
-        employee_data.name,
-        employee_data.patronymic)
-    full_name = " ".join(p.title() for p in parts if p)
+    try:
+        employee_id = employee_data.id
+        parts = (
+            employee_data.last_name,
+            employee_data.name,
+            employee_data.patronymic)
+        full_name = " ".join(p.title() for p in parts if p)
 
-    assignment_route = (
-        await session.execute(
-            select(RouteEmployeeAssignmentModel)
-            .where(
-                RouteEmployeeAssignmentModel.employee_id == employee_id,
-                RouteEmployeeAssignmentModel.date == order_date
-            )
-            .options(
-                load_only(
-                    RouteEmployeeAssignmentModel.route_id
-                ),
-                selectinload(
-                    RouteEmployeeAssignmentModel.route
-                ).load_only(
-                    RouteModel.name
+        assignment_route = (
+            await session.execute(
+                select(RouteEmployeeAssignmentModel)
+                .where(
+                    RouteEmployeeAssignmentModel.employee_id == employee_id,
+                    RouteEmployeeAssignmentModel.date == order_date
+                )
+                .options(
+                    load_only(
+                        RouteEmployeeAssignmentModel.route_id
+                    ),
+                    selectinload(
+                        RouteEmployeeAssignmentModel.route
+                    ).load_only(
+                        RouteModel.name
+                    )
                 )
             )
-        )
-    ).scalar_one_or_none()
-    if not assignment_route:
-        raise CustomHTTPException(
-            status_code=404,
-            detail="На выбранную дату у вас нет назначенных маршрутов")
-
-    route_additional_info = await session.scalar(
-        select(RouteAdditionalModel.additional_info).where(
-            RouteAdditionalModel.route_id == assignment_route.route_id,
-            RouteAdditionalModel.date == order_date
-        )
-    ) or ""
-
-    orders = (
-        await session.execute(
-            select(OrderModel)
-            .where(
-                OrderModel.route_id == assignment_route.route_id,
-                OrderModel.date == order_date,
-                OrderModel.is_active.is_(True)
+        ).scalar_one_or_none()
+        if not assignment_route:
+            raise ConflictError(
+                company_id=company_id,
+                detail="На выбранную дату у вас нет назначенных маршрутов!"
             )
-            .order_by(OrderModel.weight)
-            .options(selectinload(OrderModel.city))
-        )
-    ).scalars().all()
 
-    rows = []
-    for o in orders:
-        rows.append({
-            "address":          o.address,
-            "phone_number":     o.phone_number,
-            "sec_phone_number": o.sec_phone_number,
-            "counter_number":   o.counter_number,
-            "price":            o.price,
-            "city_name":        o.city.name,
-            "additional_info":  o.additional_info,
-            "water_type":       map_verification_water_type_to_label.get(
-                o.water_type, ''
+        route_additional_info = await session.scalar(
+            select(RouteAdditionalModel.additional_info).where(
+                RouteAdditionalModel.route_id == assignment_route.route_id,
+                RouteAdditionalModel.date == order_date
             )
-        })
+        ) or ""
 
-    metadata = {
-        "date":               order_date,
-        "route_name":         assignment_route.route.name,
-        "employee_full_name": full_name,
-        "route_additional_info": route_additional_info,
-    }
+        orders = (
+            await session.execute(
+                select(OrderModel)
+                .where(
+                    OrderModel.route_id == assignment_route.route_id,
+                    OrderModel.date == order_date,
+                    OrderModel.is_active.is_(True)
+                )
+                .order_by(OrderModel.weight)
+                .options(selectinload(OrderModel.city))
+            )
+        ).scalars().all()
 
-    buf = await run_cpu_bounds_task(
-        create_report_route_orders_list, rows, metadata)
-    filename = f"Путевой (заявочный) лист на {order_date:%Y-%m-%d}.xlsx"
-    encoded_filename = quote(filename)
+        rows = []
+        for o in orders:
+            rows.append({
+                "address":          o.address,
+                "phone_number":     o.phone_number,
+                "sec_phone_number": o.sec_phone_number,
+                "counter_number":   o.counter_number,
+                "price":            o.price,
+                "city_name":        o.city.name,
+                "additional_info":  o.additional_info,
+                "water_type":       map_verification_water_type_to_label.get(
+                    o.water_type, ''
+                )
+            })
 
-    return StreamingResponse(
-        buf,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={
-            "Content-Disposition": f"attachment; filename*=utf-8''{encoded_filename}"}
-    )
+        metadata = {
+            "date":               order_date,
+            "route_name":         assignment_route.route.name,
+            "employee_full_name": full_name,
+            "route_additional_info": route_additional_info,
+        }
+
+        buf = await run_cpu_bounds_task(
+            create_report_route_orders_list, rows, metadata)
+        filename = f"Путевой (заявочный) лист на {order_date:%Y-%m-%d}.xlsx"
+        encoded_filename = quote(filename)
+
+        return StreamingResponse(
+            buf,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={
+                "Content-Disposition": f"attachment; filename*=utf-8''{encoded_filename}"}
+        )
+    except Exception as ex:
+        raise InternalServerError(
+            detail=str(ex),
+            company_id=company_id
+        )
 
 
 @reports_api_router.get("/employees/", response_model=StatisticsResponse)
@@ -1408,8 +1446,11 @@ async def get_employees_statistics_data(
             date_to=statistic_data.date_to
         )
         return StatisticsResponse(data=report_list)
-    except Exception:
-        raise InternalServerErrorException(company_id=company_id)
+    except Exception as ex:
+        raise InternalServerError(
+            detail=str(ex),
+            company_id=company_id
+        )
 
 
 @reports_api_router.get("/cities/", response_model=StatisticsResponse)
@@ -1429,5 +1470,8 @@ async def get_cities_statistics_data(
             date_to=statistic_data.date_to
         )
         return StatisticsResponse(data=report_list)
-    except Exception:
-        raise InternalServerErrorException(company_id=company_id)
+    except Exception as ex:
+        raise InternalServerError(
+            detail=str(ex),
+            company_id=company_id
+        )

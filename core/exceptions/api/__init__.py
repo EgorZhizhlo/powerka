@@ -17,6 +17,13 @@ from core.exceptions.api.verification_entry import (
     UpdateVerificationVerNumBlockError,
     DeleteVerificationEntryAccessError,
 )
+from core.exceptions.api.common import (
+    BadRequestError,
+    ForbiddenError,
+    NotFoundError,
+    ConflictError,
+    BadGatewayError,
+)
 
 __all__ = [
     "CreateMetrologInfoAccessError",
@@ -35,4 +42,10 @@ __all__ = [
     "CreateVerificationDefaultVerifierError",
     "UpdateVerificationVerNumBlockError",
     "DeleteVerificationEntryAccessError",
+
+    "BadRequestError",
+    "ForbiddenError",
+    "NotFoundError",
+    "ConflictError",
+    "BadGatewayError",
 ]

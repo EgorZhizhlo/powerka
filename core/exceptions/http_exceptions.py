@@ -146,16 +146,6 @@ class VerificationDefaultVerifierException(HTTPException):
         super().__init__(status_code=400, detail=detail)
 
 
-class CustomCreateVerifDefaultVerifierException(CustomHTTPException):
-    def __init__(
-        self,
-        detail: str = "Создание записи поверки невозможно. "
-        "Для Вас не назначен поверитель по-умолчанию.",
-        company_id: int = None
-    ):
-        super().__init__(status_code=400, detail=detail, company_id=company_id)
-
-
 class VerificationDefaultVerifierEquipmentException(HTTPException):
     def __init__(
         self,

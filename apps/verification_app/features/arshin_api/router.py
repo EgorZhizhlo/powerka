@@ -15,10 +15,8 @@ from apps.verification_app.schemas.arshin import VriRequestSchema
 
 
 arshin_router = APIRouter(prefix="/api/arshin")
-
 ARSHIN_BASE_URL = "https://fgis.gost.ru/fundmetrology/eapi"
 ARSHIN_ROWS_LIMIT = 100
-
 AIOHTTP_TIMEOUT = 60
 AIOHTTP_LIMIT = 20
 AIOHTTP_RETRIES = 5
@@ -34,16 +32,15 @@ def _normalize_factory_number(s: str) -> str:
 
 async def _fetch_arshin_page(
     session: aiohttp.ClientSession,
-    org_title_lower: str,
-    date_ddmmyyyy: str,
+    org_title: str,
+    date_str: str,
     start: int,
-    rows: int = ARSHIN_ROWS_LIMIT,
 ) -> Dict[str, Any]:
 
     params = {
-        "org_title": org_title_lower,
-        "verification_date": date_ddmmyyyy,
-        "rows": rows,
+        "org_title": org_title,
+        "verification_date": date_str,
+        "rows": ARSHIN_ROWS_LIMIT,
         "start": start,
     }
 
@@ -102,7 +99,7 @@ async def _background_fill_vri_ids(
         by_date.setdefault(ver_date, []).append((ver_id, fac_no))
 
     dates_sorted = sorted(by_date.keys())
-    org_title_lower = (company_name or "").lower()
+    org_title_lower = (company_name or "")
 
     # Настраиваем SSL
     ssl_ctx = ssl.create_default_context()

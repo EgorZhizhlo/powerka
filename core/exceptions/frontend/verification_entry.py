@@ -76,3 +76,19 @@ class FrontendVerifProtocolAccessError(FrontendHttpException):
             detail=detail,
             company_id=company_id
         )
+
+
+class FrontendCreateVerifDefaultVerifierError(FrontendHttpException):
+    def __init__(
+        self,
+        detail: str = (
+            "Создание записи поверки невозможно. "
+            "Для Вас не назначен поверитель по-умолчанию."
+        ),
+        company_id: int = None
+    ):
+        super().__init__(
+            status_code=status_codes.HTTP_409_CONFLICT,
+            detail=detail,
+            company_id=company_id
+        )

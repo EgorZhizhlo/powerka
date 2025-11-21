@@ -27,7 +27,6 @@ from apps.verification_app.repositories import (
     MetrologInfoRepository, action_metrolog_info_repository,
     ReasonRepository, read_reason_repository,
 )
-
 from apps.verification_app.schemas.metrologs_control_a import MetrologInfoForm
 
 

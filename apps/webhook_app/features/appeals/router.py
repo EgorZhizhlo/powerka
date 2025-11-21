@@ -1,7 +1,4 @@
-from fastapi import (
-    APIRouter, HTTPException, status as status_code,
-    Depends, Body, Query
-)
+from fastapi import APIRouter, Depends, Body, Query
 
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,6 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from models import AppealModel, CompanyModel
 
 from infrastructure.db.session import async_db_session_begin
+
+from core.exceptions.api import NotFoundError
 
 from apps.webhook_app.schemas.appeals import AppealWebHookForm
 
@@ -33,9 +32,8 @@ async def create_appeal_by_webhook(
     )
     company_id = company_result.scalar_one_or_none()
     if not company_id:
-        raise HTTPException(
-            status_code=status_code.HTTP_404_NOT_FOUND,
-            detail="Компания не найдена"
+        raise NotFoundError(
+            detail="Компания не найдена!"
         )
 
     new_appeal = AppealModel(

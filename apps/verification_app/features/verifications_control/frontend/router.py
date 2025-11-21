@@ -25,9 +25,10 @@ from access_control import (
 
 from core.config import settings, format_date
 from core.db.dependencies import get_company_timezone
-from core.exceptions import (
-    check_is_none,
-    CustomCreateVerifDefaultVerifierException
+from core.exceptions.frontend import (
+    FrontendCreateVerifDefaultVerifierError,
+
+    NotFoundError,
 )
 
 from apps.verification_app.common import (
@@ -170,8 +171,9 @@ async def create_verification_entry_page(
         employee_id=employee_id)
 
     if not default_verifier:
-        raise CustomCreateVerifDefaultVerifierException(
-            company_id=company_id)
+        raise FrontendCreateVerifDefaultVerifierError(
+            company_id=company_id
+        )
 
     await check_equip_conditions(
         default_verifier.equipments, for_view=True,
@@ -284,9 +286,11 @@ async def update_verification_entry_page(
     verification_entry = (
         await session.execute(verification_entry_query)).scalar_one_or_none()
 
-    await check_is_none(
-        verification_entry, type="Поверка",
-        id=verification_entry_id, company_id=company_id)
+    if not verification_entry:
+        raise NotFoundError(
+            detail="Запись поверки не найдена!",
+            company_id=company_id
+        )
 
     employee_city_ids = await employee_cities_repo.get_cities_id(
         employee_id=employee_id

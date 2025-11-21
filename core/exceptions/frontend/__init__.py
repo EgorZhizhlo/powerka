@@ -8,6 +8,14 @@ from core.exceptions.frontend.verification_entry import (
     FrontendVerificationEquipmentError,
     FrontendVerificationEquipmentExpiredError,
     FrontendVerifProtocolAccessError,
+    FrontendCreateVerifDefaultVerifierError
+)
+from core.exceptions.frontend.common import (
+    BadRequestError,
+    ForbiddenError,
+    NotFoundError,
+    ConflictError,
+    InternalServerError,
 )
 
 __all__ = [
@@ -18,4 +26,10 @@ __all__ = [
     "FrontendVerificationEquipmentError",
     "FrontendVerificationEquipmentExpiredError",
     "FrontendVerifProtocolAccessError",
+
+    "BadRequestError",
+    "ForbiddenError",
+    "NotFoundError",
+    "ConflictError",
+    "InternalServerError",
 ]

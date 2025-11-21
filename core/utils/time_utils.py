@@ -1,7 +1,8 @@
 from datetime import datetime, timezone
 from typing import Optional
 from zoneinfo import ZoneInfo
-from fastapi import HTTPException
+
+from core.exceptions.api import BadRequestError
 
 
 def datetime_utc_now():
@@ -21,8 +22,7 @@ def validate_company_timezone(
     Проверяет соответствие timezone из схемы данных и из кеша/БД.
     """
     if schema_tz != cached_tz:
-        raise HTTPException(
-            status_code=400,
+        raise BadRequestError(
             detail=(
                 f"Несоответствие timezone: отправлено '{schema_tz}', "
                 f"ожидается '{cached_tz}' для компании {company_id}. "

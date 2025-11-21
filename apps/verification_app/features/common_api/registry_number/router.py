@@ -1,13 +1,15 @@
 from typing import Optional
 from fastapi import APIRouter, Depends, Query
 
-from apps.verification_app.repositories import (
-    RegistryNumberRepository, read_registry_number_repository
-)
 from core.config import settings
+
 from access_control import JwtData, check_access_verification
+
 from apps.verification_app.schemas.registry_number import (
     RegistryNumberResponse
+)
+from apps.verification_app.repositories import (
+    RegistryNumberRepository, read_registry_number_repository
 )
 
 

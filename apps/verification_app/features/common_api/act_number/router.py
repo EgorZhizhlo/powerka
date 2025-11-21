@@ -1,12 +1,14 @@
 from typing import Optional
 from fastapi import APIRouter, Query, Depends
 
+from core.config import settings
+
+from access_control import JwtData, check_access_verification
+
+from apps.verification_app.schemas.act_number import ActNumberResponse
 from apps.verification_app.repositories import (
     ActNumberRepository, read_act_number_repository
 )
-from core.config import settings
-from access_control import JwtData, check_access_verification
-from apps.verification_app.schemas.act_number import ActNumberResponse
 
 
 act_number_router = APIRouter(prefix='/api/act-numbers')

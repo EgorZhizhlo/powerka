@@ -30,7 +30,6 @@ from models.enums import ReasonType
 from core.config import settings
 from core.db.dependencies import get_company_timezone
 from core.utils.time_utils import validate_company_timezone
-
 from core.exceptions.api import (
     VerificationLimitError,
     VerificationVerifierError,
@@ -43,6 +42,9 @@ from core.exceptions.api import (
     CreateVerificationDefaultVerifierError,
     UpdateVerificationVerNumBlockError,
     DeleteVerificationEntryAccessError,
+
+    BadRequestError,
+    BadGatewayError,
 )
 
 from apps.verification_app.common import (
@@ -56,15 +58,14 @@ from apps.verification_app.common import (
 )
 
 from apps.verification_app.repositories import (
-    EmployeeCitiesRepository, read_employee_cities_repository,
-    CompanyRepository, read_company_repository,
+    EmployeeCitiesRepository,
+    CompanyRepository,
     VerificationEntryRepository,
     read_verification_entry_repository,
-    action_verification_entry_repository,
-    VerifierRepository, read_verifier_repository,
-    EquipmentRepository, action_equipment_repository,
-    LocationRepository, action_location_repository,
-    VerificationLogRepository, action_verification_log_repository,
+    VerifierRepository,
+    EquipmentRepository,
+    LocationRepository,
+    VerificationLogRepository,
 )
 from apps.verification_app.services import (
     process_act_number_photos,
@@ -94,7 +95,8 @@ async def get_verification_entries(
     employee_data: JwtData = Depends(check_access_verification),
     company_tz: str = Depends(get_company_timezone),
     verification_entry_repo: VerificationEntryRepository = Depends(
-        read_verification_entry_repository),
+        read_verification_entry_repository
+    ),
 ):
     filters_json = json.dumps(
         jsonable_encoder(verif_entry_filter.model_dump()),
@@ -164,31 +166,23 @@ async def create_verification_entry(
     session: AsyncSession = Depends(async_db_session_begin),
 
     employee_data: JwtData = Depends(
-        check_active_access_verification),
-    empl_cities_repo: EmployeeCitiesRepository = Depends(
-        read_employee_cities_repository
+        check_active_access_verification
     ),
-    company_repo: CompanyRepository = Depends(
-        read_company_repository
-    ),
-    verification_entry_repo: VerificationEntryRepository = Depends(
-        action_verification_entry_repository
-    ),
-    verifier_repo: VerifierRepository = Depends(
-        read_verifier_repository
-    ),
-    location_repo: LocationRepository = Depends(
-        action_location_repository
-    ),
-    equipment_repo: EquipmentRepository = Depends(
-        action_equipment_repository
-    )
 ):
     try:
         data = json.loads(verification_entry_data_raw)
         verification_entry_data = CreateVerificationEntryForm(**data)
     except Exception:
-        raise HTTPException(400, "Некорректный JSON в verification_entry_data")
+        raise BadRequestError(
+            detail="Некорректный запрос на сервер!"
+        )
+
+    empl_cities_repo = EmployeeCitiesRepository(session)
+    company_repo = CompanyRepository(session)
+    verification_entry_repo = VerificationEntryRepository(session)
+    verifier_repo = VerifierRepository(session)
+    location_repo = LocationRepository(session)
+    equipment_repo = EquipmentRepository(session)
 
     status = employee_data.status
     employee_id = employee_data.id
@@ -406,32 +400,27 @@ async def update_verification_entry(
 
     company_tz: str = Depends(get_company_timezone),
     session: AsyncSession = Depends(async_db_session_begin),
-    employee_data: JwtData = Depends(
-        check_active_access_verification),
-    empl_cities_repo: EmployeeCitiesRepository = Depends(
-        read_employee_cities_repository
-    ),
-    company_repo: CompanyRepository = Depends(
-        read_company_repository
-    ),
-    verification_entry_repo: VerificationEntryRepository = Depends(
-        action_verification_entry_repository
-    ),
-    location_repo: LocationRepository = Depends(
-        action_location_repository
-    ),
-    equipment_repo: EquipmentRepository = Depends(
-        action_equipment_repository
-    )
-):
-    status = employee_data.status
-    employee_id = employee_data.id
 
+    employee_data: JwtData = Depends(
+        check_active_access_verification
+    ),
+):
     try:
         data = json.loads(verification_entry_data_raw)
         verification_entry_data = UpdateVerificationEntryForm(**data)
     except Exception:
-        raise HTTPException(400, "Некорректный JSON в verification_entry_data")
+        raise BadRequestError(
+            detail="Некорректный запрос на сервер!"
+        )
+
+    status = employee_data.status
+    employee_id = employee_data.id
+
+    empl_cities_repo = EmployeeCitiesRepository(session)
+    company_repo = CompanyRepository(session)
+    verification_entry_repo = VerificationEntryRepository(session)
+    location_repo = LocationRepository(session)
+    equipment_repo = EquipmentRepository(session)
 
     validate_company_timezone(
         verification_entry_data.company_tz,
@@ -748,18 +737,13 @@ async def delete_verification_entry(
     user_data: JwtData = Depends(
         check_active_access_verification),
     session: AsyncSession = Depends(async_db_session_begin),
-    verification_entry_repo: VerificationEntryRepository = Depends(
-        action_verification_entry_repository
-    ),
-    location_repo: LocationRepository = Depends(
-        action_location_repository
-    ),
-    verification_log_repo: VerificationLogRepository = Depends(
-        action_verification_log_repository
-    ),
 ):
     status = user_data.status
     employee_id = user_data.id
+
+    verification_entry_repo = VerificationEntryRepository(session)
+    location_repo = LocationRepository(session)
+    verification_log_repo = VerificationLogRepository(session)
 
     ver_entry = await verification_entry_repo.get_for_delete(
         verification_entry_id=verification_entry_id,
@@ -818,8 +802,7 @@ async def delete_verification_entry(
                 )
             except HTTPException as e:
                 if e.status_code != 404:
-                    raise HTTPException(
-                        502,
+                    raise BadGatewayError(
                         detail=f"Ошибка удаления папки на Я.Диске: {e.detail}"
                     )
 

@@ -1,10 +1,13 @@
 from typing import List
-from fastapi import UploadFile, HTTPException
+from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 
 from infrastructure.yandex_disk.service import get_yandex_service
+
 from models import ActNumberPhotoModel
+
+from core.exceptions.api import BadRequestError
 
 
 async def process_act_number_photos(
@@ -28,7 +31,9 @@ async def process_act_number_photos(
     Все параметры для пути и доступа передаются напрямую.
     """
     if not token:
-        raise HTTPException(400, "Не настроен токен Яндекс.Диска.")
+        raise BadRequestError(
+            detail="Не настроен токен Яндекс.Диска!"
+        )
 
     if deleted_images_id:
         q = select(ActNumberPhotoModel).where(
